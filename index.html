@@ -169,13 +169,19 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--org)}
  <div class="wrap"><div id="sw"></div><h2>الطلبات المفتوحة</h2>
  <input id="sq" placeholder="ابحث بالموديل أو اسم القطعة"><div id="sl" style="margin-top:10px"></div></div>
 </section>
+<section id="v-admin" class="hide">
+ <header><a class="back" href="#home">← الرئيسية</a><a class="back out" href="#home">خروج</a></header>
+ <div class="wrap"><h2>لوحة الأدمن</h2>
+ <div class="stats" id="as"></div>
+ <h2>التجار</h2><div id="al"></div></div>
+</section>
 <script>
 var $=function(i){return document.getElementById(i)};
 var SB=supabase.createClient("https://gwxgwuzbjngqxebyrkqt.supabase.co","sb_publishable_9DgVInJ9JHK9i_MSyfvx5A_OBIl4V4q");
 var me=null,ready=false,mode="in",role="customer",SUP=[],QD={},IMG={};
 var CL={original:"أصلي",aftermarket:"تجاري",used:"مستعمل"};
 var ST={open:"مفتوح",quoted:"وصلت عروض",accepted:"تم الاختيار",closed:"مقفول",cancelled:"ملغي"};
-var VIEWS=["home","request","login","mine","supplier"];
+var VIEWS=["home","request","login","mine","supplier","admin"];
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 var G={"ثلاث عجلات (باجاج وتوكتوك)":{"باجاج":["RE Compact","RE 4S","RE Maxima"],"توكتوك":["توكتوك عام"],"TVS King":["King"],"بياجيو":["Ape"]},
 "موتوسيكلات":{"هوندا موتوسيكل":["CG125","CB"],"ياماها":["YBR","FZ"],"سوزوكي موتوسيكل":["GN125"],"TVS":["Apache"],"SYM":["Symphony"],"باجاج موتوسيكل":["Pulsar","Boxer"],"فيسبا":["Primavera"]},
@@ -191,8 +197,10 @@ var $=function(i){return document.getElementById(i)};
 function route(){
   if(!ready)return;
   var r=location.hash.slice(1);if(VIEWS.indexOf(r)<0)r="home";
-  if(r==="request"||r==="mine"||r==="supplier"){
+  if(r==="request"||r==="mine"||r==="supplier"||r==="admin"){
     if(!me)r="login";
+    else if(me.role==="admin")r="admin";
+    else if(r==="admin")r=me.role==="supplier"?"supplier":"mine";
     else if(r==="supplier"&&me.role!=="supplier")r="mine";
     else if(r==="mine"&&me.role==="supplier")r="supplier";
   }
@@ -200,17 +208,19 @@ function route(){
   if(r==="request"){$("f").classList.remove("hide");$("done").classList.add("hide")}
   if(r==="mine")loadMine();
   if(r==="supplier")loadSup();
+  if(r==="admin")loadAdmin();
   window.scrollTo(0,0);
 }
 window.addEventListener("hashchange",route);
+function dest(){return me.role==="admin"?"admin":me.role==="supplier"?"supplier":"mine"}
 async function load(sess){
   me=null;
   if(sess){var p=await SB.from("profiles").select("role,full_name").eq("id",sess.user.id).maybeSingle();
     if(p.data)me={id:sess.user.id,role:p.data.role,name:p.data.full_name}}
   ready=true;
   var a=document.querySelector("#v-home header .back");
-  a.textContent=me?"حسابي":"دخول / حساب جديد";a.setAttribute("href",me?(me.role==="supplier"?"#supplier":"#mine"):"#login");
-  if(me&&location.hash==="#login")location.hash=me.role==="supplier"?"supplier":"mine";
+  a.textContent=me?"حسابي":"دخول / حساب جديد";a.setAttribute("href",me?"#"+dest():"#login");
+  if(me&&location.hash==="#login")location.hash=dest();
   route();
 }
 SB.auth.onAuthStateChange(function(ev,s){
@@ -340,6 +350,32 @@ $("sl").onclick=async function(e){
   var r=await SB.from("quotations").insert({request_id:s,supplier_id:me.id,price:price,condition:i[1].value,delivery_cost:+i[2].value||0,delivery_days:+i[3].value||null,compatibility_note:i[4].value||null,warranty_note:i[5].value||null});
   if(r.error){alert("مقدرتش أبعت العرض: "+r.error.message);t.disabled=false;return}
   QD[s]=1;drawSup();
+};
+
+var SS={pending:"قيد المراجعة",approved:"معتمد",suspended:"موقوف"};
+async function loadAdmin(){
+  var cnt=function(t,f){var q=SB.from(t).select("id",{count:"exact",head:true});return f?f(q):q};
+  var r=await Promise.all([
+    cnt("profiles",function(q){return q.eq("role","customer")}),
+    cnt("supplier_profiles",function(q){return q.eq("status","approved")}),
+    cnt("supplier_profiles",function(q){return q.eq("status","pending")}),
+    cnt("spare_part_requests"),cnt("quotations"),
+    cnt("spare_part_requests",function(q){return q.eq("status","accepted")})
+  ]);
+  var L=["عملاء","تجار معتمدين","تجار منتظرين","طلبات","عروض","طلبات مختارة"];
+  $("as").innerHTML=L.map(function(t,i){return '<div class="card" style="font-size:13px"><b>'+(r[i].count==null?"-":r[i].count)+'</b>'+t+'</div>'}).join("");
+  var s=await SB.from("supplier_profiles").select("id,business_name,address,contact_phone,status").order("created_at",{ascending:false});
+  if(s.error){$("al").innerHTML='<p class="mute">حصلت مشكلة في تحميل التجار</p>';return}
+  $("al").innerHTML=s.data.length?s.data.map(function(x){
+    return '<div class="card" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+esc(x.business_name)+'</b><span class="tag">'+SS[x.status]+'</span></div><div class="meta mute">'+esc(x.address||"")+' · '+esc(x.contact_phone||"")+'</div><button class="btn sm'+(x.status==="approved"?' ghost':'')+'" style="margin-top:8px" data-i="'+x.id+'" data-a="'+(x.status==="approved"?"suspended":"approved")+'">'+(x.status==="approved"?"إيقاف":x.status==="suspended"?"إعادة تفعيل":"اعتماد")+'</button></div>';
+  }).join(""):'<p class="mute">مفيش تجار لسه.</p>';
+}
+$("al").onclick=async function(e){
+  var a=e.target.getAttribute("data-a"),i=e.target.getAttribute("data-i");if(!a)return;
+  e.target.disabled=true;
+  var r=await SB.from("supplier_profiles").update({status:a}).eq("id",i);
+  if(r.error){alert("مقدرتش أغيّر الحالة: "+r.error.message);e.target.disabled=false;return}
+  loadAdmin();
 };
 </script>
 </body>
