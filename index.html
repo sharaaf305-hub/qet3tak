@@ -166,13 +166,13 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--org)}
 </section>
 <section id="v-supplier" class="hide">
  <header><a class="back" href="#home">← الرئيسية</a><a class="back out" href="#home">خروج</a></header>
- <div class="wrap"><div id="sw"></div><h2>الطلبات المفتوحة</h2>
+ <div class="wrap"><div id="sw"></div><h2>أوردراتي</h2><div id="so"></div><h2>الطلبات المفتوحة</h2>
  <input id="sq" placeholder="ابحث بالموديل أو اسم القطعة"><div id="sl" style="margin-top:10px"></div></div>
 </section>
 <section id="v-admin" class="hide">
  <header><a class="back" href="#home">← الرئيسية</a><a class="back out" href="#home">خروج</a></header>
  <div class="wrap"><h2>لوحة الأدمن</h2>
- <div class="stats" id="as"></div>
+ <div class="stats" id="as"></div><div id="ac" style="margin-top:12px"></div>
  <h2>التجار</h2><div id="al"></div></div>
 </section>
 <script>
@@ -208,7 +208,7 @@ function route(){
   if(r==="request"){$("f").classList.remove("hide");$("done").classList.add("hide")}
   if(r==="mine")loadMine();
   if(r==="supplier")loadSup();
-  if(r==="admin")loadAdmin();
+  if(r==="admin"){loadAdmin();loadAdminExtra();}
   window.scrollTo(0,0);
 }
 window.addEventListener("hashchange",route);
@@ -292,36 +292,77 @@ $("f").onsubmit=async function(e){
   if(bad)alert("فيه "+bad+" صورة ما اتحملتش");
   window.scrollTo(0,0);
 };
+var one=function(x){return Array.isArray(x)?x[0]:x};
+var OS={confirmed:"تم تأكيد الأوردر",preparing:"التاجر بيجهّز القطعة",shipped:"القطعة اتشحنت",completed:"مكتمل",cancelled:"ملغي",disputed:"فيه مشكلة"};
 async function loadMine(){
   var L=$("ml");L.innerHTML='<p class="mute">بحمّل...</p>';
-  var r=await SB.from("spare_part_requests").select("id,request_number,part_name,description,status,quotations(id,supplier_id,price,condition,compatibility_note,warranty_note,delivery_cost,delivery_days,status)").eq("customer_id",me.id).order("created_at",{ascending:false});
+  var r=await SB.from("spare_part_requests").select("id,request_number,part_name,description,status,quotations(id,supplier_id,price,condition,compatibility_note,warranty_note,delivery_cost,delivery_days,status),orders(id,order_number,status,supplier_id)").eq("customer_id",me.id).order("created_at",{ascending:false});
   if(r.error){L.innerHTML='<p class="mute">حصلت مشكلة في التحميل</p>';return}
   if(!r.data.length){L.innerHTML='<p class="mute">لسه معندكش طلبات.</p>';return}
   var ids=[],S={};
   r.data.forEach(function(x){x.quotations.forEach(function(q){if(ids.indexOf(q.supplier_id)<0)ids.push(q.supplier_id)})});
-  if(ids.length){var sp=await SB.from("supplier_profiles").select("id,business_name").in("id",ids);(sp.data||[]).forEach(function(s){S[s.id]=s})}
+  if(ids.length){var sp=await SB.from("supplier_profiles").select("id,business_name,contact_phone").in("id",ids);(sp.data||[]).forEach(function(s){S[s.id]=s})}
   L.innerHTML=r.data.map(function(x){
-    var st=x.status==="open"&&x.quotations.length?"quoted":x.status;
-    var qs=x.quotations.map(function(q){
+    var od=one(x.orders),st=od?OS[od.status]:ST[x.status==="open"&&x.quotations.length?"quoted":x.status];
+    var ql=od?x.quotations.filter(function(q){return q.status==="accepted"}):x.quotations;
+    var qs=ql.map(function(q){
       var s=S[q.supplier_id]||{},sel=q.status==="accepted";
-      return '<div class="card q'+(sel?' sel':'')+'" style="margin-top:8px"><div style="display:flex;justify-content:space-between"><b>'+esc(s.business_name||"تاجر")+'</b><span class="tag">'+CL[q.condition]+'</span></div><div class="pr">'+q.price+' ج.م</div><div class="meta">توصيل '+q.delivery_cost+' ج.م · الإجمالي '+(+q.price+ +q.delivery_cost)+' ج.م'+(q.delivery_days?' · '+q.delivery_days+' يوم':'')+(q.warranty_note?'<br>الضمان: '+esc(q.warranty_note):'')+(q.compatibility_note?'<br>التوافق: '+esc(q.compatibility_note):'')+'</div>'+(x.status==="accepted"?(sel?'<p class="mute">✓ العرض المختار</p>':''):'<button class="btn sm" style="margin-top:8px" data-q="'+q.id+'" data-r="'+x.id+'">اختار العرض ده</button>')+'</div>';
+      return '<div class="card q'+(sel?' sel':'')+'" style="margin-top:8px"><div style="display:flex;justify-content:space-between"><b>'+esc(s.business_name||"تاجر")+'</b><span class="tag">'+CL[q.condition]+'</span></div><div class="pr">'+q.price+' ج.م</div><div class="meta">توصيل '+q.delivery_cost+' ج.م · الإجمالي '+(+q.price+ +q.delivery_cost)+' ج.م'+(q.delivery_days?' · '+q.delivery_days+' يوم':'')+(q.warranty_note?'<br>الضمان: '+esc(q.warranty_note):'')+(q.compatibility_note?'<br>التوافق: '+esc(q.compatibility_note):'')+'</div>'+(!od&&x.status!=="accepted"?'<button class="btn sm" style="margin-top:8px" data-q="'+q.id+'">اختار العرض ده</button>':'')+'</div>';
     }).join("");
-    return '<div class="card" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+esc(x.part_name||"طلب قطعة")+'</b><span class="tag">'+ST[st]+'</span></div><div class="mute" style="direction:ltr;text-align:right">'+esc(x.request_number)+'</div><div class="meta" style="white-space:pre-line">'+esc(x.description)+'</div>'+(qs||'<p class="mute">مستنيين عروض التجار...</p>')+'</div>';
+    var ob="";
+    if(od){var sp=S[od.supplier_id]||{};
+      ob='<div class="warn" style="margin-top:10px">أوردر <span style="direction:ltr;display:inline-block">'+esc(od.order_number)+'</span><br>'+OS[od.status]+'<br>التاجر: '+esc(sp.business_name||"")+' · '+esc(sp.contact_phone||"")
+       +(od.status==="confirmed"?'<br><button class="btn sm ghost" style="margin-top:8px" data-o="'+od.id+'" data-s="cancelled">إلغاء الأوردر</button>':'')
+       +(od.status==="shipped"?'<br><button class="btn sm" style="margin-top:8px" data-o="'+od.id+'" data-s="completed">استلمت القطعة ✓</button> <button class="btn sm ghost" style="margin-top:8px" data-o="'+od.id+'" data-s="disputed">فيه مشكلة</button>':'')+'</div>';}
+    return '<div class="card" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+esc(x.part_name||"طلب قطعة")+'</b><span class="tag">'+st+'</span></div><div class="mute" style="direction:ltr;text-align:right">'+esc(x.request_number)+'</div><div class="meta" style="white-space:pre-line">'+esc(x.description)+'</div>'+ob+(qs||'<p class="mute">مستنيين عروض التجار...</p>')+'</div>';
   }).join("");
 }
+async function setOrd(e,reload){
+  var o=e.target.getAttribute("data-o"),s=e.target.getAttribute("data-s");if(!o||!s)return;
+  if((s==="cancelled"&&!confirm("متأكد إنك عايز تلغي الأوردر؟"))||(s==="disputed"&&!confirm("هتبلّغ إن فيه مشكلة في الاستلام؟")))return;
+  e.target.disabled=true;
+  var r=await SB.rpc("set_order_status",{o:o,s:s});
+  if(r.error){alert("مقدرتش أغيّر الحالة");e.target.disabled=false;return}
+  reload();
+}
 $("ml").onclick=async function(e){
-  var q=e.target.getAttribute("data-q");if(!q)return;var r=e.target.getAttribute("data-r");e.target.disabled=true;
-  var a=await SB.from("quotations").update({status:"accepted"}).eq("id",q);
-  if(a.error){alert("مقدرتش أحفظ الاختيار: "+a.error.message);e.target.disabled=false;return}
-  await SB.from("quotations").update({status:"rejected"}).eq("request_id",r).neq("id",q);
-  await SB.from("spare_part_requests").update({status:"accepted"}).eq("id",r);
-  loadMine();
+  var q=e.target.getAttribute("data-q");
+  if(q){e.target.disabled=true;var a=await SB.rpc("accept_quotation",{q:q});
+    if(a.error){alert("مقدرتش أأكّد العرض: "+a.error.message);e.target.disabled=false;return}
+    loadMine();return}
+  setOrd(e,loadMine);
 };
+$("so").onclick=function(e){setOrd(e,loadOrdersSup)};
+async function loadOrdersSup(){
+  var W=$("so");W.innerHTML='<p class="mute">بحمّل...</p>';
+  var r=await SB.from("orders").select("id,order_number,status,item_price,delivery_cost,spare_part_requests(part_name,governorate,city),customer:profiles!customer_id(full_name,phone),commissions(amount)").eq("supplier_id",me.id).order("created_at",{ascending:false});
+  if(r.error){W.innerHTML='<p class="mute">حصلت مشكلة في تحميل الأوردرات</p>';return}
+  if(!r.data.length){W.innerHTML='<p class="mute">مفيش أوردرات لسه.</p>';return}
+  var sales=0,com=0;
+  var h=r.data.map(function(x){
+    var rq=one(x.spare_part_requests)||{},cu=one(x.customer)||{},cm=one(x.commissions);
+    if(x.status==="completed"){sales+= +x.item_price;if(cm)com+= +cm.amount}
+    return '<div class="card" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+esc(rq.part_name||"أوردر")+'</b><span class="tag">'+OS[x.status]+'</span></div><div class="mute" style="direction:ltr;text-align:right">'+esc(x.order_number)+'</div><div class="meta">السعر '+x.item_price+' ج.م + توصيل '+x.delivery_cost+' ج.م<br>العميل: '+esc(cu.full_name||"")+' · '+esc(cu.phone||"")+'<br>'+esc(rq.governorate||"")+' · '+esc(rq.city||"")+(cm?'<br>عمولة المنصة: '+cm.amount+' ج.م':'')+'</div>'
+     +(x.status==="confirmed"?'<button class="btn sm" style="margin-top:8px" data-o="'+x.id+'" data-s="preparing">ابدأ التجهيز</button> <button class="btn sm ghost" style="margin-top:8px" data-o="'+x.id+'" data-s="cancelled">إلغاء</button>':'')
+     +(x.status==="preparing"?'<button class="btn sm" style="margin-top:8px" data-o="'+x.id+'" data-s="shipped">تم الشحن</button> <button class="btn sm ghost" style="margin-top:8px" data-o="'+x.id+'" data-s="cancelled">إلغاء</button>':'')+'</div>';
+  }).join("");
+  W.innerHTML='<div class="stats" style="margin-bottom:10px"><div class="card" style="font-size:13px"><b>'+sales.toFixed(0)+'</b>مبيعات مكتملة</div><div class="card" style="font-size:13px"><b>'+com.toFixed(2)+'</b>عمولة المنصة</div><div class="card" style="font-size:13px"><b>'+(sales-com).toFixed(2)+'</b>صافي ليك</div></div>'+h;
+}
+async function loadAdminExtra(){
+  var a=await Promise.all([SB.from("commissions").select("amount"),SB.from("orders").select("id,status"),SB.from("platform_settings").select("value").eq("key","commission_rate").maybeSingle()]);
+  var tot=(a[0].data||[]).reduce(function(t,x){return t+ +x.amount},0),od=a[1].data||[];
+  var done=od.filter(function(x){return x.status==="completed"}).length,rate=a[2].data?a[2].data.value:"8";
+  $("ac").innerHTML='<div class="card"><b style="font-size:20px;color:var(--org)">'+tot.toFixed(2)+' ج.م</b> إجمالي العمولات<div class="meta mute">'+od.length+' أوردر · '+done+' مكتمل</div><label for="cr">نسبة العمولة (%)</label><div class="row"><input id="cr" type="number" inputmode="decimal" value="'+esc(rate)+'"><button class="btn sm" id="cs" type="button">حفظ</button></div></div>';
+  $("cs").onclick=async function(){var v=+$("cr").value;if(!(v>=0&&v<=50)){alert("النسبة لازم تكون بين 0 و 50");return}
+    var r=await SB.from("platform_settings").update({value:String(v)}).eq("key","commission_rate");
+    alert(r.error?"مقدرتش أحفظ":"اتحفظت، وهتتطبق على الأوردرات الجاية")};
+}
 async function loadSup(){
   var W=$("sw"),L=$("sl");W.innerHTML="";L.innerHTML='<p class="mute">بحمّل...</p>';
   var p=await SB.from("supplier_profiles").select("status").eq("id",me.id).maybeSingle();
   if(!p.data){W.innerHTML='<div class="warn" style="margin-top:16px">مفيش بيانات محل لحسابك.</div>';L.innerHTML="";return}
   if(p.data.status!=="approved"){W.innerHTML='<div class="warn" style="margin-top:16px">حسابك '+(p.data.status==="pending"?"قيد المراجعة":"موقوف")+'. هتشوف الطلبات وتبعت عروض بعد الموافقة.</div>';L.innerHTML="";return}
+  loadOrdersSup();
   var r=await SB.from("spare_part_requests").select("id,request_number,part_name,description,quantity,governorate,city,request_images(storage_path)").in("status",["open","quoted"]).order("created_at",{ascending:false}).limit(50);
   if(r.error){L.innerHTML='<p class="mute">حصلت مشكلة في التحميل</p>';return}
   var m=await SB.from("quotations").select("request_id").eq("supplier_id",me.id);
