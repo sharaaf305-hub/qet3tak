@@ -296,7 +296,7 @@ var one=function(x){return Array.isArray(x)?x[0]:x};
 var OS={confirmed:"تم تأكيد الأوردر",preparing:"التاجر بيجهّز القطعة",shipped:"القطعة اتشحنت",completed:"مكتمل",cancelled:"ملغي",disputed:"فيه مشكلة"};
 async function loadMine(){
   var L=$("ml");L.innerHTML='<p class="mute">بحمّل...</p>';
-  var r=await SB.from("spare_part_requests").select("id,request_number,part_name,description,status,quotations(id,supplier_id,price,condition,compatibility_note,warranty_note,delivery_cost,delivery_days,status),orders(id,order_number,status,supplier_id)").eq("customer_id",me.id).order("created_at",{ascending:false});
+  var r=await SB.from("spare_part_requests").select("id,request_number,part_name,description,status,quotations(id,supplier_id,price,condition,compatibility_note,warranty_note,delivery_cost,delivery_days,status),orders(id,order_number,status,supplier_id,shipping_method,tracking_number)").eq("customer_id",me.id).order("created_at",{ascending:false});
   if(r.error){L.innerHTML='<p class="mute">حصلت مشكلة في التحميل</p>';return}
   if(!r.data.length){L.innerHTML='<p class="mute">لسه معندكش طلبات.</p>';return}
   var ids=[],S={};
@@ -311,7 +311,7 @@ async function loadMine(){
     }).join("");
     var ob="";
     if(od){var sp=S[od.supplier_id]||{};
-      ob='<div class="warn" style="margin-top:10px">أوردر <span style="direction:ltr;display:inline-block">'+esc(od.order_number)+'</span><br>'+OS[od.status]+'<br>التاجر: '+esc(sp.business_name||"")+' · '+esc(sp.contact_phone||"")
+      ob='<div class="warn" style="margin-top:10px">أوردر <span style="direction:ltr;display:inline-block">'+esc(od.order_number)+'</span><br>'+OS[od.status]+'<br>التاجر: '+esc(sp.business_name||"")+' · '+esc(sp.contact_phone||"")+(od.shipping_method?'<br>الشحن: '+esc(od.shipping_method)+(od.tracking_number?' · رقم التتبع: '+esc(od.tracking_number):''):'')
        +(od.status==="confirmed"?'<br><button class="btn sm ghost" style="margin-top:8px" data-o="'+od.id+'" data-s="cancelled">إلغاء الأوردر</button>':'')
        +(od.status==="shipped"?'<br><button class="btn sm" style="margin-top:8px" data-o="'+od.id+'" data-s="completed">استلمت القطعة ✓</button> <button class="btn sm ghost" style="margin-top:8px" data-o="'+od.id+'" data-s="disputed">فيه مشكلة</button>':'')+'</div>';}
     return '<div class="card" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+esc(x.part_name||"طلب قطعة")+'</b><span class="tag">'+st+'</span></div><div class="mute" style="direction:ltr;text-align:right">'+esc(x.request_number)+'</div><div class="meta" style="white-space:pre-line">'+esc(x.description)+'</div>'+ob+(qs||'<p class="mute">مستنيين عروض التجار...</p>')+'</div>';
@@ -327,36 +327,73 @@ async function setOrd(e,reload){
 }
 $("ml").onclick=async function(e){
   var q=e.target.getAttribute("data-q");
-  if(q){e.target.disabled=true;var a=await SB.rpc("accept_quotation",{q:q});
+  if(q){var ad=prompt("اكتب عنوان التسليم بالتفصيل (الشارع، المنطقة، علامة مميزة) ورقم موبايل للتواصل لو مختلف:");if(!ad||ad.trim().length<8){alert("اكتب العنوان كامل");return}e.target.disabled=true;var a=await SB.rpc("accept_quotation",{q:q,addr:ad.trim()});
     if(a.error){alert("مقدرتش أأكّد العرض: "+a.error.message);e.target.disabled=false;return}
     loadMine();return}
   setOrd(e,loadMine);
 };
-$("so").onclick=function(e){setOrd(e,loadOrdersSup)};
+function waNum(p){var d=String(p).replace(/\D/g,"");if(d.indexOf("0")===0)d="20"+d.slice(1);return d}
+$("so").onclick=async function(e){
+  var o=e.target.getAttribute("data-sh");
+  if(!o){setOrd(e,loadOrdersSup);return}
+  var m=prompt("طريقة الشحن؟ (مثلاً: توصيل بمعرفتي / بوسطة / أرامكس):");if(!m)return;
+  var t=prompt("رقم التتبع (لو موجود، أو سيبه فاضي):")||"";
+  e.target.disabled=true;
+  var r=await SB.rpc("set_shipping_info",{o:o,m:m.trim(),t:t.trim()});
+  if(!r.error)r=await SB.rpc("set_order_status",{o:o,s:"shipped"});
+  if(r.error){alert("مقدرتش أسجّل الشحن");e.target.disabled=false;return}
+  loadOrdersSup();
+};
 async function loadOrdersSup(){
   var W=$("so");W.innerHTML='<p class="mute">بحمّل...</p>';
-  var r=await SB.from("orders").select("id,order_number,status,item_price,delivery_cost,spare_part_requests(part_name,governorate,city),customer:profiles!customer_id(full_name,phone),commissions(amount)").eq("supplier_id",me.id).order("created_at",{ascending:false});
+  var q=await Promise.all([
+    SB.from("orders").select("id,order_number,status,item_price,delivery_cost,delivery_address,shipping_method,tracking_number,spare_part_requests(part_name,governorate,city),customer:profiles!customer_id(full_name,phone),commissions(amount)").eq("supplier_id",me.id).order("created_at",{ascending:false}),
+    SB.from("commission_payments").select("amount"),
+    SB.from("platform_settings").select("value").eq("key","credit_limit").maybeSingle()]);
+  var r=q[0];
   if(r.error){W.innerHTML='<p class="mute">حصلت مشكلة في تحميل الأوردرات</p>';return}
   if(!r.data.length){W.innerHTML='<p class="mute">مفيش أوردرات لسه.</p>';return}
   var sales=0,com=0;
   var h=r.data.map(function(x){
     var rq=one(x.spare_part_requests)||{},cu=one(x.customer)||{},cm=one(x.commissions);
-    if(x.status==="completed"){sales+= +x.item_price;if(cm)com+= +cm.amount}
-    return '<div class="card" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+esc(rq.part_name||"أوردر")+'</b><span class="tag">'+OS[x.status]+'</span></div><div class="mute" style="direction:ltr;text-align:right">'+esc(x.order_number)+'</div><div class="meta">السعر '+x.item_price+' ج.م + توصيل '+x.delivery_cost+' ج.م<br>العميل: '+esc(cu.full_name||"")+' · '+esc(cu.phone||"")+'<br>'+esc(rq.governorate||"")+' · '+esc(rq.city||"")+(cm?'<br>عمولة المنصة: '+cm.amount+' ج.م':'')+'</div>'
+    if(x.status==="completed"){sales+= +x.item_price}
+    if(cm)com+= +cm.amount;
+    return '<div class="card" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+esc(rq.part_name||"أوردر")+'</b><span class="tag">'+OS[x.status]+'</span></div><div class="mute" style="direction:ltr;text-align:right">'+esc(x.order_number)+'</div><div class="meta">السعر '+x.item_price+' ج.م + توصيل '+x.delivery_cost+' ج.م<br>العميل: '+esc(cu.full_name||"")+' · '+esc(cu.phone||"")+'<br>'+esc(rq.governorate||"")+' · '+esc(rq.city||"")+(x.delivery_address?'<br>العنوان: '+esc(x.delivery_address):'')+(x.shipping_method?'<br>الشحن: '+esc(x.shipping_method)+(x.tracking_number?' · '+esc(x.tracking_number):''):'')+(cm?'<br>عمولة المنصة: '+cm.amount+' ج.م':'')+'</div>'+(cu.phone?'<a class="btn sm ghost" style="margin-top:8px" href="tel:'+waNum(cu.phone)+'">اتصال</a> <a class="btn sm ghost" style="margin-top:8px" href="https://wa.me/'+waNum(cu.phone)+'">واتساب</a> ':'')
      +(x.status==="confirmed"?'<button class="btn sm" style="margin-top:8px" data-o="'+x.id+'" data-s="preparing">ابدأ التجهيز</button> <button class="btn sm ghost" style="margin-top:8px" data-o="'+x.id+'" data-s="cancelled">إلغاء</button>':'')
-     +(x.status==="preparing"?'<button class="btn sm" style="margin-top:8px" data-o="'+x.id+'" data-s="shipped">تم الشحن</button> <button class="btn sm ghost" style="margin-top:8px" data-o="'+x.id+'" data-s="cancelled">إلغاء</button>':'')+'</div>';
+     +(x.status==="preparing"?'<button class="btn sm" style="margin-top:8px" data-sh="'+x.id+'">تم الشحن</button> <button class="btn sm ghost" style="margin-top:8px" data-o="'+x.id+'" data-s="cancelled">إلغاء</button>':'')+'</div>';
   }).join("");
-  W.innerHTML='<div class="stats" style="margin-bottom:10px"><div class="card" style="font-size:13px"><b>'+sales.toFixed(0)+'</b>مبيعات مكتملة</div><div class="card" style="font-size:13px"><b>'+com.toFixed(2)+'</b>عمولة المنصة</div><div class="card" style="font-size:13px"><b>'+(sales-com).toFixed(2)+'</b>صافي ليك</div></div>'+h;
+  var paid=(q[1].data||[]).reduce(function(t,x){return t+ +x.amount},0),due=com-paid,lim=q[2].data?+q[2].data.value:500;
+  var warn=due>lim?'<div class="warn" style="margin-bottom:10px">المستحق عليك للمنصة '+due.toFixed(2)+' ج.م عدّى الحد ('+lim+' ج.م). حوّل للمنصة عشان تقدر تبعت عروض جديدة.</div>':'';
+  W.innerHTML=warn+'<div class="stats" style="margin-bottom:10px"><div class="card" style="font-size:13px"><b>'+sales.toFixed(0)+'</b>مبيعات مكتملة</div><div class="card" style="font-size:13px"><b>'+due.toFixed(2)+'</b>مستحق للمنصة</div><div class="card" style="font-size:13px"><b>'+paid.toFixed(2)+'</b>اتسدد</div></div>'+h;
 }
 async function loadAdminExtra(){
-  var a=await Promise.all([SB.from("commissions").select("amount"),SB.from("orders").select("id,status"),SB.from("platform_settings").select("value").eq("key","commission_rate").maybeSingle()]);
-  var tot=(a[0].data||[]).reduce(function(t,x){return t+ +x.amount},0),od=a[1].data||[];
-  var done=od.filter(function(x){return x.status==="completed"}).length,rate=a[2].data?a[2].data.value:"8";
-  $("ac").innerHTML='<div class="card"><b style="font-size:20px;color:var(--org)">'+tot.toFixed(2)+' ج.م</b> إجمالي العمولات<div class="meta mute">'+od.length+' أوردر · '+done+' مكتمل</div><label for="cr">نسبة العمولة (%)</label><div class="row"><input id="cr" type="number" inputmode="decimal" value="'+esc(rate)+'"><button class="btn sm" id="cs" type="button">حفظ</button></div></div>';
-  $("cs").onclick=async function(){var v=+$("cr").value;if(!(v>=0&&v<=50)){alert("النسبة لازم تكون بين 0 و 50");return}
-    var r=await SB.from("platform_settings").update({value:String(v)}).eq("key","commission_rate");
-    alert(r.error?"مقدرتش أحفظ":"اتحفظت، وهتتطبق على الأوردرات الجاية")};
+  var a=await Promise.all([SB.from("commissions").select("supplier_id,amount"),SB.from("commission_payments").select("supplier_id,amount"),SB.from("orders").select("id,status"),SB.from("platform_settings").select("key,value"),SB.from("supplier_profiles").select("id,business_name")]);
+  var cm=a[0].data||[],pm=a[1].data||[],od=a[2].data||[],st={},D={},tot=0,paid=0;
+  (a[3].data||[]).forEach(function(x){st[x.key]=x.value});
+  cm.forEach(function(x){tot+= +x.amount;D[x.supplier_id]=(D[x.supplier_id]||0)+ +x.amount});
+  pm.forEach(function(x){paid+= +x.amount;D[x.supplier_id]=(D[x.supplier_id]||0)- +x.amount});
+  var done=od.filter(function(x){return x.status==="completed"}).length;
+  var rows=(a[4].data||[]).map(function(s){var d=D[s.id]||0;return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px"><span>'+esc(s.business_name)+'<br><b>'+d.toFixed(2)+' ج.م</b> <span class="mute">مستحق</span></span><button class="btn sm ghost" data-p="'+s.id+'">تسجيل دفعة</button></div>'}).join("");
+  $("ac").innerHTML='<div class="card"><b style="font-size:20px;color:var(--org)">'+tot.toFixed(2)+' ج.م</b> إجمالي العمولات<div class="meta mute">اتسدد '+paid.toFixed(2)+' · المتبقي '+(tot-paid).toFixed(2)+'<br>'+od.length+' أوردر · '+done+' مكتمل</div>'
+   +'<label for="cr">نسبة العمولة (%)</label><div class="row"><input id="cr" type="number" inputmode="decimal" value="'+esc(st.commission_rate||"8")+'"><button class="btn sm" id="cs" type="button">حفظ</button></div>'
+   +'<label for="cl">أقصى مستحقات قبل إيقاف التاجر (ج.م)</label><div class="row"><input id="cl" type="number" inputmode="decimal" value="'+esc(st.credit_limit||"500")+'"><button class="btn sm" id="cls" type="button">حفظ</button></div></div>'
+   +'<div class="card" style="margin-top:10px"><b>مستحقات التجار</b>'+(rows||'<p class="mute">مفيش تجار.</p>')+'</div>';
+  $("cs").onclick=function(){saveSet("commission_rate",$("cr").value)};
+  $("cls").onclick=function(){saveSet("credit_limit",$("cl").value)};
 }
+async function saveSet(k,v){
+  v=+v;if(!(v>=0&&v<=100000)){alert("قيمة غلط");return}
+  var r=await SB.from("platform_settings").update({value:String(v)}).eq("key",k);
+  alert(r.error?"مقدرتش أحفظ":"اتحفظت");
+}
+$("ac").onclick=async function(e){
+  var p=e.target.getAttribute("data-p");if(!p)return;
+  var v=prompt("المبلغ اللي التاجر حوّله (ج.م):");if(v===null)return;v=+v;
+  if(!(v>0)){alert("اكتب مبلغ صحيح");return}
+  var r=await SB.from("commission_payments").insert({supplier_id:p,amount:v});
+  if(r.error){alert("مقدرتش أسجّل الدفعة");return}
+  loadAdminExtra();
+};
 async function loadSup(){
   var W=$("sw"),L=$("sl");W.innerHTML="";L.innerHTML='<p class="mute">بحمّل...</p>';
   var p=await SB.from("supplier_profiles").select("status").eq("id",me.id).maybeSingle();
