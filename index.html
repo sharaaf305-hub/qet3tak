@@ -468,13 +468,14 @@ async function delAcc(){
   if(prompt('اكتب كلمة "حذف" للتأكيد:')!=="حذف")return;
   var a=await SB.from("orders").select("id").in("status",["confirmed","preparing","shipped","disputed"]).limit(1);
   if(a.data&&a.data.length){alert("عندك أوردر لسه شغّال. استنى لما يخلص أو يتلغي، وبعدين احذف حسابك.");return}
+  var ps=[];
   if(me.role==="customer"){
     var im=await SB.from("request_images").select("storage_path");
-    var ps=(im.data||[]).map(function(x){return x.storage_path});
-    if(ps.length)await SB.storage.from("request-images").remove(ps);
+    ps=(im.data||[]).map(function(x){return x.storage_path});
   }
   var r=await SB.rpc("delete_my_account");
-  if(r.error){alert(/dues/.test(r.error.message)?"عليك مستحقات للمنصة. سدّدها الأول وبعدين احذف حسابك.":/active/.test(r.error.message)?"عندك أوردر لسه شغّال.":"مقدرتش أحذف الحساب. حاول تاني أو كلّمنا على الإيميل اللي في صفحة الخصوصية.");return}
+  if(r.error){var m=r.error.message||"";alert(/dues/.test(m)?"عليك مستحقات للمنصة. سدّدها الأول وبعدين احذف حسابك.":/active/.test(m)?"عندك أوردر لسه شغّال.":"مقدرتش أحذف الحساب.\nالسبب: "+m);return}
+  if(ps.length){try{await SB.storage.from("request-images").remove(ps)}catch(e){}}
   await SB.auth.signOut();alert("اتحذف حسابك.");location.hash="home";
 }
 Array.prototype.forEach.call(document.querySelectorAll(".delacc"),function(a){a.onclick=function(e){e.preventDefault();delAcc()}});
