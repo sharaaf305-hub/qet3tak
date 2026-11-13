@@ -50,6 +50,13 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--org)}
 .q.sel{border:2px solid var(--org)}.q .pr{font-size:20px;font-weight:800}.q .meta{font-size:13px;color:var(--mute)}
 .warn{background:var(--card);border:1px solid var(--org);border-radius:12px;padding:10px 12px;font-size:14px}
 .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.bell{position:fixed;left:14px;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);z-index:60;width:52px;height:52px;border-radius:50%;border:0;background:var(--org);color:#fff;font-size:22px;box-shadow:0 4px 14px rgba(0,0,0,.35);cursor:pointer}
+.bell.hide,.npanel.hide,.nc.hide{display:none}
+.nc{position:absolute;top:-4px;right:-4px;min-width:20px;height:20px;border-radius:10px;background:#d92d20;color:#fff;font-size:12px;line-height:20px;padding:0 5px;font-family:inherit}
+.npanel{position:fixed;left:0;right:0;bottom:0;z-index:70;max-height:70vh;overflow:auto;background:var(--card);color:var(--ink);border-top:1px solid var(--line);border-radius:16px 16px 0 0;padding:14px 16px calc(env(safe-area-inset-bottom,0px) + 16px);box-shadow:0 -6px 20px rgba(0,0,0,.3)}
+.nh{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+.ni{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;cursor:pointer}
+.ni.un{border-color:var(--org);background:var(--bg)}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <link rel="manifest" href="manifest.json">
@@ -230,6 +237,7 @@ async function load(sess){
   a.textContent=me?"حسابي":"دخول / حساب جديد";a.setAttribute("href",me?"#"+dest():"#login");
   if(me&&location.hash==="#login")location.hash=dest();
   route();
+  loadN();
 }
 SB.auth.onAuthStateChange(function(ev,s){
   var id=s&&s.user.id;
@@ -479,6 +487,40 @@ async function delAcc(){
   await SB.auth.signOut();alert("اتحذف حسابك.");location.hash="home";
 }
 Array.prototype.forEach.call(document.querySelectorAll(".delacc"),function(a){a.onclick=function(e){e.preventDefault();delAcc()}});
+var NB=null,NP=null,NL=[];
+function nbInit(){
+  NB=document.createElement("button");NB.className="bell hide";NB.type="button";NB.setAttribute("aria-label","الإشعارات");
+  NB.innerHTML='🔔<span id="nc" class="nc hide"></span>';
+  NP=document.createElement("div");NP.className="npanel hide";
+  NP.innerHTML='<div class="nh"><b>الإشعارات</b><span><button type="button" id="nr" class="btn sm ghost">تعليم الكل كمقروء</button> <button type="button" id="nx" class="btn sm ghost">قفل</button></span></div><div id="nl"></div>';
+  document.body.appendChild(NB);document.body.appendChild(NP);
+  NB.onclick=function(){NP.classList.toggle("hide");if(!NP.classList.contains("hide"))drawN()};
+  $("nx").onclick=function(){NP.classList.add("hide")};
+  $("nr").onclick=async function(){await SB.from("notifications").update({is_read:true}).eq("user_id",me.id).eq("is_read",false);loadN()};
+  $("nl").onclick=async function(e){
+    var el=e.target.closest("[data-n]");if(!el)return;
+    await SB.from("notifications").update({is_read:true}).eq("id",el.getAttribute("data-n"));
+    NP.classList.add("hide");loadN();
+    var lk=el.getAttribute("data-l");if(lk)location.hash=lk;
+  };
+}
+async function loadN(){
+  if(!NB)return;
+  if(!me){NB.classList.add("hide");NP.classList.add("hide");return}
+  var r=await SB.from("notifications").select("id,title,body,link,is_read,created_at").order("created_at",{ascending:false}).limit(30);
+  NL=r.data||[];
+  var u=NL.filter(function(x){return!x.is_read}).length;
+  NB.classList.remove("hide");$("nc").textContent=u;$("nc").classList.toggle("hide",!u);
+  if(!NP.classList.contains("hide"))drawN();
+}
+function drawN(){
+  $("nl").innerHTML=NL.length?NL.map(function(x){
+    return '<div class="ni'+(x.is_read?'':' un')+'" data-n="'+x.id+'" data-l="'+esc(x.link||"")+'"><b>'+esc(x.title)+'</b><div class="meta">'+esc(x.body||"")+'</div><div class="mute" style="font-size:12px">'+new Date(x.created_at).toLocaleString("ar-EG")+'</div></div>';
+  }).join(""):'<p class="mute">مفيش إشعارات لسه.</p>';
+}
+nbInit();
+setInterval(function(){if(me&&!document.hidden)loadN()},30000);
+document.addEventListener("visibilitychange",function(){if(me&&!document.hidden)loadN()});
 var dp=null;
 window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();dp=e;$("ins").classList.remove("hide")});
 $("ins").onclick=function(){if(dp){dp.prompt();dp=null;this.classList.add("hide")}};
