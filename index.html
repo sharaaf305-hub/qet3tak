@@ -202,13 +202,13 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--org)}
 </section>
 <section id="v-supplier" class="hide">
  <header><a class="back" href="#home">← الرئيسية</a><a class="back out" href="#home">خروج</a></header>
- <div class="wrap"><div id="sw"></div><h2>أوردراتي</h2><div id="so"></div><h2>الطلبات المفتوحة</h2>
+ <div class="wrap"><div id="sw"></div><div id="sv"></div><h2>أوردراتي</h2><div id="so"></div><h2>الطلبات المفتوحة</h2>
  <input id="sq" placeholder="ابحث بالموديل أو اسم القطعة"><div id="sl" style="margin-top:10px"></div><p style="text-align:center;margin-top:30px"><a href="#" class="delacc mute" style="font-size:13px">حذف حسابي</a></p></div>
 </section>
 <section id="v-admin" class="hide">
  <header><a class="back" href="#home">← الرئيسية</a><a class="back out" href="#home">خروج</a></header>
  <div class="wrap"><h2>لوحة الأدمن</h2>
- <div class="stats" id="as"></div><div id="ac" style="margin-top:12px"></div>
+ <div class="stats" id="as"></div><div id="ac" style="margin-top:12px"></div><h2>طلبات توثيق التجار</h2><div id="av"></div>
  <h2>التجار</h2><div id="al"></div></div>
 </section>
 <script>
@@ -246,7 +246,7 @@ function route(){
   if(r==="request"){$("f").classList.remove("hide");$("done").classList.add("hide")}
   if(r==="mine")loadMine();
   if(r==="supplier")loadSup();
-  if(r==="admin"){loadAdmin();loadAdminExtra();}
+  if(r==="admin"){loadAdmin();loadAdminExtra();loadAdminVer();}
   window.scrollTo(0,0);
 }
 window.addEventListener("hashchange",route);
@@ -343,13 +343,13 @@ async function loadMine(){
   if(!r.data.length){L.innerHTML='<p class="mute">لسه معندكش طلبات.</p>';return}
   var ids=[],S={};
   r.data.forEach(function(x){x.quotations.forEach(function(q){if(ids.indexOf(q.supplier_id)<0)ids.push(q.supplier_id)})});
-  if(ids.length){var sp=await SB.from("supplier_profiles").select("id,business_name,contact_phone").in("id",ids);(sp.data||[]).forEach(function(s){S[s.id]=s})}
+  if(ids.length){var sp=await SB.from("supplier_profiles").select("id,business_name,contact_phone,verified").in("id",ids);(sp.data||[]).forEach(function(s){S[s.id]=s})}
   L.innerHTML=r.data.map(function(x){
     var od=one(x.orders),st=od?OS[od.status]:ST[x.status==="open"&&x.quotations.length?"quoted":x.status];
     var ql=od?x.quotations.filter(function(q){return q.status==="accepted"}):x.quotations;
     var qs=ql.map(function(q){
       var s=S[q.supplier_id]||{},sel=q.status==="accepted";
-      return '<div class="card q'+(sel?' sel':'')+'" style="margin-top:8px"><div style="display:flex;justify-content:space-between"><b>'+esc(s.business_name||"تاجر")+'</b><span class="tag">'+CL[q.condition]+'</span></div><div class="pr">'+q.price+' ج.م</div><div class="meta">توصيل '+q.delivery_cost+' ج.م · الإجمالي '+(+q.price+ +q.delivery_cost)+' ج.م'+(q.delivery_days?' · '+q.delivery_days+' يوم':'')+(q.warranty_note?'<br>الضمان: '+esc(q.warranty_note):'')+(q.compatibility_note?'<br>التوافق: '+esc(q.compatibility_note):'')+'</div>'+(!od&&x.status!=="accepted"?'<button class="btn sm" style="margin-top:8px" data-q="'+q.id+'">اختار العرض ده</button>':'')+' <button class="btn sm ghost" style="margin-top:8px" data-c="'+x.id+'|'+q.supplier_id+'" data-t="'+esc(s.business_name||"التاجر")+'">💬 شات</button></div>';
+      return '<div class="card q'+(sel?' sel':'')+'" style="margin-top:8px"><div style="display:flex;justify-content:space-between"><b>'+esc(s.business_name||"تاجر")+(s.verified?' ✓ موثّق':'')+'</b><span class="tag">'+CL[q.condition]+'</span></div><div class="pr">'+q.price+' ج.م</div><div class="meta">توصيل '+q.delivery_cost+' ج.م · الإجمالي '+(+q.price+ +q.delivery_cost)+' ج.م'+(q.delivery_days?' · '+q.delivery_days+' يوم':'')+(q.warranty_note?'<br>الضمان: '+esc(q.warranty_note):'')+(q.compatibility_note?'<br>التوافق: '+esc(q.compatibility_note):'')+'</div>'+(!od&&x.status!=="accepted"?'<button class="btn sm" style="margin-top:8px" data-q="'+q.id+'">اختار العرض ده</button>':'')+' <button class="btn sm ghost" style="margin-top:8px" data-c="'+x.id+'|'+q.supplier_id+'" data-t="'+esc(s.business_name||"التاجر")+'">💬 شات</button></div>';
     }).join("");
     var ob="";
     if(od){var sp=S[od.supplier_id]||{};
@@ -381,10 +381,9 @@ $("so").onclick=async function(e){
   var c=e.target.getAttribute("data-c");if(c){openChat(c,me.id,"شات مع العميل");return}
   var o=e.target.getAttribute("data-sh");
   if(!o){setOrd(e,loadOrdersSup);return}
-  var m=prompt("طريقة الشحن؟ (مثلاً: توصيل بمعرفتي / بوسطة / أرامكس):");if(!m)return;
-  var t=prompt("رقم التتبع (لو موجود، أو سيبه فاضي):")||"";
+  var sh=await shipDialog();if(!sh)return;
   e.target.disabled=true;
-  var r=await SB.rpc("set_shipping_info",{o:o,m:m.trim(),t:t.trim()});
+  var r=await SB.rpc("set_shipping_info",{o:o,m:sh.m,t:sh.t});
   if(!r.error)r=await SB.rpc("set_order_status",{o:o,s:"shipped"});
   if(r.error){alert("مقدرتش أسجّل الشحن");e.target.disabled=false;return}
   loadOrdersSup();
@@ -444,7 +443,7 @@ async function loadSup(){
   var p=await SB.from("supplier_profiles").select("status").eq("id",me.id).maybeSingle();
   if(!p.data){W.innerHTML='<div class="warn" style="margin-top:16px">مفيش بيانات محل لحسابك.</div>';L.innerHTML="";return}
   if(p.data.status!=="approved"){W.innerHTML='<div class="warn" style="margin-top:16px">حسابك '+(p.data.status==="pending"?"قيد المراجعة":"موقوف")+'. هتشوف الطلبات وتبعت عروض بعد الموافقة.</div>';L.innerHTML="";return}
-  loadOrdersSup();
+  loadVerif();loadOrdersSup();
   var r=await SB.from("spare_part_requests").select("id,request_number,part_name,description,quantity,governorate,city,request_images(storage_path)").in("status",["open","quoted"]).order("created_at",{ascending:false}).limit(50);
   if(r.error){L.innerHTML='<p class="mute">حصلت مشكلة في التحميل</p>';return}
   var m=await SB.from("quotations").select("request_id").eq("supplier_id",me.id);
@@ -511,9 +510,12 @@ async function delAcc(){
     var im=await SB.from("request_images").select("storage_path");
     ps=(im.data||[]).map(function(x){return x.storage_path});
   }
+  var dp2=[];
+  if(me.role==="supplier"){var vv=await SB.from("supplier_verifications").select("id_path,commercial_path,shop_path").eq("supplier_id",me.id).maybeSingle();if(vv.data)dp2=[vv.data.id_path,vv.data.commercial_path,vv.data.shop_path]}
   var r=await SB.rpc("delete_my_account");
   if(r.error){var m=r.error.message||"";alert(/dues/.test(m)?"عليك مستحقات للمنصة. سدّدها الأول وبعدين احذف حسابك.":/active/.test(m)?"عندك أوردر لسه شغّال.":"مقدرتش أحذف الحساب.\nالسبب: "+m);return}
   if(ps.length){try{await SB.storage.from("request-images").remove(ps)}catch(e){}}
+  if(dp2.length){try{await SB.storage.from("supplier-docs").remove(dp2);await SB.rpc("purge_my_verification")}catch(e){}}
   await SB.auth.signOut();alert("اتحذف حسابك.");location.hash="home";
 }
 Array.prototype.forEach.call(document.querySelectorAll(".delacc"),function(a){a.onclick=function(e){e.preventDefault();delAcc()}});
@@ -589,6 +591,64 @@ async function loadChat(){
   }).join(""):'<p class="mute">ابدأ المحادثة. اسأل عن التوافق أو الحالة أو الضمان.</p>';
   if(atEnd)box.scrollTop=box.scrollHeight;
 }
+var SHIP=["توصيل بمعرفتي","بوسطة (Bosta)","أرامكس (Aramex)","J&T Express","ميلرز (Mylerz)","البريد المصري","شركة شحن تانية"];
+function shipDialog(){
+  return new Promise(function(res){
+    var d=document.createElement("div");d.className="chat";
+    d.innerHTML='<div class="ch"><b>تأكيد الشحن</b></div><div class="cm"><label>طريقة الشحن</label><select id="sd1">'+SHIP.map(function(x){return'<option>'+esc(x)+'</option>'}).join("")+'</select><label>رقم التتبع (لو موجود)</label><input id="sd2" placeholder="مثلاً 12345678"><button class="btn" id="sd3" type="button">تأكيد الشحن</button><button class="btn ghost" id="sd4" type="button">إلغاء</button></div>';
+    document.body.appendChild(d);
+    $("sd3").onclick=function(){var v={m:$("sd1").value,t:$("sd2").value.trim()};d.remove();res(v)};
+    $("sd4").onclick=function(){d.remove();res(null)};
+  });
+}
+async function loadVerif(){
+  var V=$("sv");
+  var q=await SB.from("supplier_verifications").select("status,note").eq("supplier_id",me.id).maybeSingle();
+  var st=q.data?q.data.status:null;
+  if(st==="approved"){V.innerHTML='<div class="card" style="margin-top:12px">✓ حسابك موثّق</div>';return}
+  var info=st==="pending"?'<p class="mute">مستنداتك قيد المراجعة.</p>':(st==="rejected"?'<p class="mute">اترفض: '+esc(q.data.note||"")+'. ارفع المستندات تاني.</p>':'<p class="mute">وثّق حسابك عشان تظهرلك شارة «موثّق» عند العملاء وتاخد ثقة أكتر.</p>');
+  V.innerHTML='<div class="card" style="margin-top:12px"><b>توثيق الحساب</b>'+info+(st==="pending"?'':'<label>صورة البطاقة الشخصية (الوش)</label><input id="vf1" type="file" accept="image/*"><label>السجل التجاري أو البطاقة الضريبية</label><input id="vf2" type="file" accept="image/*"><label>صورة المحل</label><input id="vf3" type="file" accept="image/*"><button class="btn sm" id="vs" style="margin-top:10px" type="button">إرسال للمراجعة</button>')+'</div>';
+  if(st!=="pending")$("vs").onclick=submitVerif;
+}
+async function submitVerif(){
+  var b=this,f=[$("vf1").files[0],$("vf2").files[0],$("vf3").files[0]];
+  if(!f[0]||!f[1]||!f[2]){alert("ارفع التلات صور");return}
+  b.disabled=true;var P=[];
+  for(var i=0;i<3;i++){
+    var ext=(f[i].name.split(".").pop()||"jpg").toLowerCase().replace(/[^a-z0-9]/g,"");
+    var path=me.id+"/"+Date.now()+"-"+i+"."+ext;
+    var u=await SB.storage.from("supplier-docs").upload(path,f[i]);
+    if(u.error){alert("مقدرتش أرفع صورة");b.disabled=false;return}
+    P.push(path);
+  }
+  var r=await SB.rpc("submit_verification",{idp:P[0],cp:P[1],sp:P[2]});
+  if(r.error){alert("مقدرتش أبعت المستندات");b.disabled=false;return}
+  loadVerif();
+}
+async function loadAdminVer(){
+  var el=$("av");
+  var r=await SB.from("supplier_verifications").select("supplier_id,id_path,commercial_path,shop_path,supplier_profiles(business_name,contact_phone)").eq("status","pending").order("submitted_at");
+  if(r.error){el.innerHTML="";return}
+  var d=r.data||[];
+  if(!d.length){el.innerHTML='<p class="mute">مفيش طلبات توثيق.</p>';return}
+  var ps=[];d.forEach(function(x){ps.push(x.id_path,x.commercial_path,x.shop_path)});
+  var u=await SB.storage.from("supplier-docs").createSignedUrls(ps,600),U={};
+  (u.data||[]).forEach(function(x){if(x.signedUrl)U[x.path]=x.signedUrl});
+  el.innerHTML=d.map(function(x){
+    var sp=one(x.supplier_profiles)||{};
+    var ln=function(p,t){return U[p]?'<a href="'+esc(U[p])+'" target="_blank" rel="noopener">'+t+'</a>':t};
+    return '<div class="card" style="margin-bottom:10px"><b>'+esc(sp.business_name||"")+'</b> <span class="mute">'+esc(sp.contact_phone||"")+'</span><div class="meta">'+ln(x.id_path,"البطاقة")+' · '+ln(x.commercial_path,"السجل/الضريبية")+' · '+ln(x.shop_path,"المحل")+'</div><button class="btn sm" data-v="'+x.supplier_id+'" data-ok="1" style="margin-top:8px">توثيق ✓</button> <button class="btn sm ghost" data-v="'+x.supplier_id+'" style="margin-top:8px">رفض</button></div>';
+  }).join("");
+}
+$("av").onclick=async function(e){
+  var v=e.target.getAttribute("data-v");if(!v)return;
+  var ok=e.target.getAttribute("data-ok")==="1",note="";
+  if(!ok){note=prompt("سبب الرفض (هيوصل للتاجر):");if(note===null)return}
+  e.target.disabled=true;
+  var r=await SB.rpc("review_verification",{sid:v,ok:ok,reason:note});
+  if(r.error){alert("مقدرتش أحفظ");e.target.disabled=false;return}
+  loadAdminVer();
+};
 nbInit();chInit();
 setInterval(function(){if(me&&!document.hidden)loadN()},30000);
 document.addEventListener("visibilitychange",function(){if(me&&!document.hidden)loadN()});
