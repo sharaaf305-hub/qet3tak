@@ -57,6 +57,15 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--org)}
 .nh{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
 .ni{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;cursor:pointer}
 .ni.un{border-color:var(--org);background:var(--bg)}
+.chat{position:fixed;inset:0;z-index:80;background:var(--bg);color:var(--ink);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)}
+.chat.hide{display:none}
+.ch{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 16px;background:var(--navy);color:#fff}
+.cm{flex:1;overflow:auto;padding:12px 16px}
+.mb{max-width:80%;padding:8px 12px;border-radius:14px;margin-bottom:8px;white-space:pre-wrap;word-break:break-word}
+.mb.me{background:var(--org);color:#fff;margin-inline-end:auto}
+.mb.th{background:var(--card);border:1px solid var(--line);margin-inline-start:auto}
+.cf{display:flex;gap:8px;align-items:center;padding:10px 12px calc(env(safe-area-inset-bottom,0px) + 10px);border-top:1px solid var(--line);background:var(--card)}
+.cf input{flex:1}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <link rel="manifest" href="manifest.json">
@@ -340,7 +349,7 @@ async function loadMine(){
     var ql=od?x.quotations.filter(function(q){return q.status==="accepted"}):x.quotations;
     var qs=ql.map(function(q){
       var s=S[q.supplier_id]||{},sel=q.status==="accepted";
-      return '<div class="card q'+(sel?' sel':'')+'" style="margin-top:8px"><div style="display:flex;justify-content:space-between"><b>'+esc(s.business_name||"تاجر")+'</b><span class="tag">'+CL[q.condition]+'</span></div><div class="pr">'+q.price+' ج.م</div><div class="meta">توصيل '+q.delivery_cost+' ج.م · الإجمالي '+(+q.price+ +q.delivery_cost)+' ج.م'+(q.delivery_days?' · '+q.delivery_days+' يوم':'')+(q.warranty_note?'<br>الضمان: '+esc(q.warranty_note):'')+(q.compatibility_note?'<br>التوافق: '+esc(q.compatibility_note):'')+'</div>'+(!od&&x.status!=="accepted"?'<button class="btn sm" style="margin-top:8px" data-q="'+q.id+'">اختار العرض ده</button>':'')+'</div>';
+      return '<div class="card q'+(sel?' sel':'')+'" style="margin-top:8px"><div style="display:flex;justify-content:space-between"><b>'+esc(s.business_name||"تاجر")+'</b><span class="tag">'+CL[q.condition]+'</span></div><div class="pr">'+q.price+' ج.م</div><div class="meta">توصيل '+q.delivery_cost+' ج.م · الإجمالي '+(+q.price+ +q.delivery_cost)+' ج.م'+(q.delivery_days?' · '+q.delivery_days+' يوم':'')+(q.warranty_note?'<br>الضمان: '+esc(q.warranty_note):'')+(q.compatibility_note?'<br>التوافق: '+esc(q.compatibility_note):'')+'</div>'+(!od&&x.status!=="accepted"?'<button class="btn sm" style="margin-top:8px" data-q="'+q.id+'">اختار العرض ده</button>':'')+' <button class="btn sm ghost" style="margin-top:8px" data-c="'+x.id+'|'+q.supplier_id+'" data-t="'+esc(s.business_name||"التاجر")+'">💬 شات</button></div>';
     }).join("");
     var ob="";
     if(od){var sp=S[od.supplier_id]||{};
@@ -359,6 +368,8 @@ async function setOrd(e,reload){
   reload();
 }
 $("ml").onclick=async function(e){
+  var c=e.target.getAttribute("data-c");
+  if(c){var p=c.split("|");openChat(p[0],p[1],e.target.getAttribute("data-t")||"شات مع التاجر");return}
   var q=e.target.getAttribute("data-q");
   if(q){var ad=prompt("اكتب عنوان التسليم بالتفصيل (الشارع، المنطقة، علامة مميزة) ورقم موبايل للتواصل لو مختلف:");if(!ad||ad.trim().length<8){alert("اكتب العنوان كامل");return}e.target.disabled=true;var a=await SB.rpc("accept_quotation",{q:q,addr:ad.trim()});
     if(a.error){alert("مقدرتش أأكّد العرض: "+a.error.message);e.target.disabled=false;return}
@@ -367,6 +378,7 @@ $("ml").onclick=async function(e){
 };
 function waNum(p){var d=String(p).replace(/\D/g,"");if(d.indexOf("0")===0)d="20"+d.slice(1);return d}
 $("so").onclick=async function(e){
+  var c=e.target.getAttribute("data-c");if(c){openChat(c,me.id,"شات مع العميل");return}
   var o=e.target.getAttribute("data-sh");
   if(!o){setOrd(e,loadOrdersSup);return}
   var m=prompt("طريقة الشحن؟ (مثلاً: توصيل بمعرفتي / بوسطة / أرامكس):");if(!m)return;
@@ -380,7 +392,7 @@ $("so").onclick=async function(e){
 async function loadOrdersSup(){
   var W=$("so");W.innerHTML='<p class="mute">بحمّل...</p>';
   var q=await Promise.all([
-    SB.from("orders").select("id,order_number,status,item_price,delivery_cost,delivery_address,shipping_method,tracking_number,spare_part_requests(part_name,governorate,city),customer:profiles!customer_id(full_name,phone),commissions(amount)").eq("supplier_id",me.id).order("created_at",{ascending:false}),
+    SB.from("orders").select("id,order_number,request_id,status,item_price,delivery_cost,delivery_address,shipping_method,tracking_number,spare_part_requests(part_name,governorate,city),customer:profiles!customer_id(full_name,phone),commissions(amount)").eq("supplier_id",me.id).order("created_at",{ascending:false}),
     SB.from("commission_payments").select("amount"),
     SB.from("platform_settings").select("value").eq("key","credit_limit").maybeSingle()]);
   var r=q[0];
@@ -392,7 +404,7 @@ async function loadOrdersSup(){
     if(x.status==="completed"){sales+= +x.item_price}
     if(cm)com+= +cm.amount;
     return '<div class="card" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+esc(rq.part_name||"أوردر")+'</b><span class="tag">'+OS[x.status]+'</span></div><div class="mute" style="direction:ltr;text-align:right">'+esc(x.order_number)+'</div><div class="meta">السعر '+x.item_price+' ج.م + توصيل '+x.delivery_cost+' ج.م<br>العميل: '+esc(cu.full_name||"")+' · '+esc(cu.phone||"")+'<br>'+esc(rq.governorate||"")+' · '+esc(rq.city||"")+(x.delivery_address?'<br>العنوان: '+esc(x.delivery_address):'')+(x.shipping_method?'<br>الشحن: '+esc(x.shipping_method)+(x.tracking_number?' · '+esc(x.tracking_number):''):'')+(cm?'<br>عمولة المنصة: '+cm.amount+' ج.م':'')+'</div>'+(cu.phone?'<a class="btn sm ghost" style="margin-top:8px" href="tel:'+waNum(cu.phone)+'">اتصال</a> <a class="btn sm ghost" style="margin-top:8px" href="https://wa.me/'+waNum(cu.phone)+'">واتساب</a> ':'')
-     +(x.status==="confirmed"?'<button class="btn sm" style="margin-top:8px" data-o="'+x.id+'" data-s="preparing">ابدأ التجهيز</button> <button class="btn sm ghost" style="margin-top:8px" data-o="'+x.id+'" data-s="cancelled">إلغاء</button>':'')
+     +'<button class="btn sm ghost" style="margin-top:8px" data-c="'+x.request_id+'">💬 شات</button> '+(x.status==="confirmed"?'<button class="btn sm" style="margin-top:8px" data-o="'+x.id+'" data-s="preparing">ابدأ التجهيز</button> <button class="btn sm ghost" style="margin-top:8px" data-o="'+x.id+'" data-s="cancelled">إلغاء</button>':'')
      +(x.status==="preparing"?'<button class="btn sm" style="margin-top:8px" data-sh="'+x.id+'">تم الشحن</button> <button class="btn sm ghost" style="margin-top:8px" data-o="'+x.id+'" data-s="cancelled">إلغاء</button>':'')+'</div>';
   }).join("");
   var paid=(q[1].data||[]).reduce(function(t,x){return t+ +x.amount},0),due=com-paid,lim=q[2].data?+q[2].data.value:500;
@@ -447,11 +459,12 @@ function drawSup(){
   var l=SUP.filter(function(x){return!t||((x.part_name||"")+" "+(x.description||"")).toLowerCase().indexOf(t)>=0});
   $("sl").innerHTML=l.length?l.map(function(x){
     var th=x.request_images.map(function(i){return IMG[i.storage_path]?'<img src="'+esc(IMG[i.storage_path])+'" alt="صورة القطعة">':''}).join("");
-    return '<div class="card" style="margin-bottom:12px"><b>'+esc(x.part_name||"طلب قطعة")+'</b> <span class="tag">× '+x.quantity+'</span><div class="meta" style="white-space:pre-line">'+esc(x.description)+'<br>'+esc(x.governorate)+' · '+esc(x.city)+'</div>'+(th?'<div class="thumbs">'+th+'</div>':'')+(QD[x.id]?'<p class="mute">✓ بعتّ عرضك على الطلب ده</p>':'<button class="btn sm ghost" style="margin-top:8px" data-o="'+x.id+'">ابعت عرض</button><div class="hide" id="qf'+x.id+'"><label>السعر (ج.م)</label><input type="number" inputmode="numeric"><label>الحالة</label><select><option value="original">أصلي</option><option value="aftermarket">تجاري</option><option value="used">مستعمل</option></select><label>تكلفة التوصيل</label><input type="number" inputmode="numeric" value="0"><label>مدة التوصيل (أيام)</label><input type="number" inputmode="numeric"><label>التوافق (لو متأكد)</label><input><label>الضمان</label><input><button class="btn sm" style="margin-top:10px" data-s="'+x.id+'">إرسال العرض</button></div>')+'</div>';
+    return '<div class="card" style="margin-bottom:12px"><b>'+esc(x.part_name||"طلب قطعة")+'</b> <span class="tag">× '+x.quantity+'</span><div class="meta" style="white-space:pre-line">'+esc(x.description)+'<br>'+esc(x.governorate)+' · '+esc(x.city)+'</div>'+(th?'<div class="thumbs">'+th+'</div>':'')+(QD[x.id]?'<p class="mute">✓ بعتّ عرضك على الطلب ده</p><button class="btn sm ghost" data-c="'+x.id+'">💬 شات مع العميل</button>':'<button class="btn sm ghost" style="margin-top:8px" data-o="'+x.id+'">ابعت عرض</button><div class="hide" id="qf'+x.id+'"><label>السعر (ج.م)</label><input type="number" inputmode="numeric"><label>الحالة</label><select><option value="original">أصلي</option><option value="aftermarket">تجاري</option><option value="used">مستعمل</option></select><label>تكلفة التوصيل</label><input type="number" inputmode="numeric" value="0"><label>مدة التوصيل (أيام)</label><input type="number" inputmode="numeric"><label>التوافق (لو متأكد)</label><input><label>الضمان</label><input><button class="btn sm" style="margin-top:10px" data-s="'+x.id+'">إرسال العرض</button></div>')+'</div>';
   }).join(""):'<p class="mute">مفيش طلبات مفتوحة دلوقتي.</p>';
 }
 $("sq").oninput=drawSup;
 $("sl").onclick=async function(e){
+  var c=e.target.getAttribute("data-c");if(c){openChat(c,me.id,"شات مع العميل");return}
   var t=e.target,o=t.getAttribute("data-o");
   if(o){document.getElementById("qf"+o).classList.toggle("hide");return}
   var s=t.getAttribute("data-s");if(!s)return;
@@ -551,7 +564,32 @@ $("rf").onsubmit=async function(e){
   recovering=false;m.textContent="";alert("اتغيّرت كلمة السر.");
   location.hash=me?dest():"home";route();
 };
-nbInit();
+var CH=null,CK=null,CT=null;
+function chInit(){
+  CH=document.createElement("div");CH.className="chat hide";
+  CH.innerHTML='<div class="ch"><b id="ct">شات</b><button type="button" id="cx" class="btn sm ghost" style="color:#fff;border-color:#fff">قفل</button></div><div class="cm" id="cm"></div><form class="cf" id="cf"><input id="ci" maxlength="1000" placeholder="اكتب رسالتك" autocomplete="off"><button class="btn sm" type="submit" style="margin:0">إرسال</button></form>';
+  document.body.appendChild(CH);
+  $("cx").onclick=closeChat;
+  $("cf").onsubmit=async function(e){
+    e.preventDefault();var t=$("ci").value.trim();if(!t||!CK)return;$("ci").value="";
+    var r=await SB.from("messages").insert({request_id:CK.r,supplier_id:CK.s,sender_id:me.id,body:t});
+    if(r.error){$("ci").value=t;alert(/phone_blocked/.test(r.error.message)?"مينفعش تبعت رقم موبايل قبل ما العميل يختار العرض. الأرقام بتظهر بعد تأكيد الأوردر.":"مقدرتش أبعت الرسالة");return}
+    loadChat();
+  };
+}
+function openChat(r,s,title){CK={r:r,s:s};$("ct").textContent=title||"شات";CH.classList.remove("hide");loadChat();clearInterval(CT);CT=setInterval(loadChat,5000)}
+function closeChat(){CH.classList.add("hide");CK=null;clearInterval(CT)}
+async function loadChat(){
+  if(!CK)return;
+  var k=CK,r=await SB.from("messages").select("id,sender_id,body,created_at").eq("request_id",k.r).eq("supplier_id",k.s).order("created_at");
+  if(!CK||r.error)return;
+  var box=$("cm"),atEnd=box.scrollHeight-box.scrollTop-box.clientHeight<80;
+  box.innerHTML=(r.data||[]).length?r.data.map(function(m){
+    return '<div class="mb '+(m.sender_id===me.id?'me':'th')+'">'+esc(m.body)+'<div style="font-size:11px;opacity:.7;margin-top:2px">'+new Date(m.created_at).toLocaleTimeString("ar-EG",{hour:"2-digit",minute:"2-digit"})+'</div></div>';
+  }).join(""):'<p class="mute">ابدأ المحادثة. اسأل عن التوافق أو الحالة أو الضمان.</p>';
+  if(atEnd)box.scrollTop=box.scrollHeight;
+}
+nbInit();chInit();
 setInterval(function(){if(me&&!document.hidden)loadN()},30000);
 document.addEventListener("visibilitychange",function(){if(me&&!document.hidden)loadN()});
 var dp=null;
