@@ -162,6 +162,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--org)}
  <form id="lf">
   <label for="em">الإيميل</label><input id="em" type="email" required autocomplete="email">
   <label for="pw">كلمة السر</label><input id="pw" type="password" minlength="6" required autocomplete="current-password">
+  <div id="p2w" class="hide"><label for="pw2">تأكيد كلمة السر</label><input id="pw2" type="password" autocomplete="new-password"></div>
   <div id="sg" class="hide">
    <div class="seg" id="seg" style="margin-top:14px"><button type="button" class="on" data-r="customer">عميل</button><button type="button" data-r="supplier">تاجر</button></div>
    <label for="nm">الاسم</label><input id="nm">
@@ -172,8 +173,19 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--org)}
   <p class="mute" style="font-size:12px">بالتسجيل أنت موافق على <a href="legal.html#terms">شروط الاستخدام</a> و<a href="legal.html#privacy">سياسة الخصوصية</a>.</p>
   <p id="msg" class="mute"></p>
   <button class="btn" type="submit" id="sb">دخول</button>
+  <button class="btn ghost" type="button" id="fp">نسيت كلمة السر؟</button>
  </form>
  <button class="btn ghost" id="tg" type="button">معنديش حساب، سجّل حساب جديد</button></div>
+</section>
+<section id="v-reset" class="hide">
+ <header><a class="back" href="#home">← الرئيسية</a><div class="logo">قطع<b>تك</b></div></header>
+ <div class="wrap"><h2>كلمة سر جديدة</h2>
+ <form id="rf">
+  <label for="np">كلمة السر الجديدة</label><input id="np" type="password" autocomplete="new-password" required>
+  <label for="np2">تأكيد كلمة السر</label><input id="np2" type="password" autocomplete="new-password" required>
+  <p id="rm" class="mute"></p>
+  <button class="btn" type="submit">حفظ كلمة السر</button>
+ </form></div>
 </section>
 <section id="v-mine" class="hide">
  <header><a class="back" href="#home">← الرئيسية</a><a class="back out" href="#home">خروج</a></header>
@@ -192,11 +204,12 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--org)}
 </section>
 <script>
 var $=function(i){return document.getElementById(i)};
+var REC=/type=recovery/.test(location.hash+location.search),recovering=REC;
 var SB=supabase.createClient("https://gwxgwuzbjngqxebyrkqt.supabase.co","sb_publishable_9DgVInJ9JHK9i_MSyfvx5A_OBIl4V4q");
 var me=null,ready=false,mode="in",role="customer",SUP=[],QD={},IMG={};
 var CL={original:"أصلي",aftermarket:"تجاري",used:"مستعمل"};
 var ST={open:"مفتوح",quoted:"وصلت عروض",accepted:"تم الاختيار",closed:"مقفول",cancelled:"ملغي"};
-var VIEWS=["home","request","login","mine","supplier","admin"];
+var VIEWS=["home","request","login","mine","supplier","admin","reset"];
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 var G={"ثلاث عجلات (باجاج وتوكتوك)":{"باجاج":["RE Compact","RE 4S","RE Maxima"],"توكتوك":["توكتوك عام"],"TVS King":["King"],"بياجيو":["Ape"]},
 "موتوسيكلات":{"هوندا موتوسيكل":["CG125","CB"],"ياماها":["YBR","FZ"],"سوزوكي موتوسيكل":["GN125"],"TVS":["Apache"],"SYM":["Symphony"],"باجاج موتوسيكل":["Pulsar","Boxer"],"فيسبا":["Primavera"]},
@@ -212,6 +225,7 @@ var $=function(i){return document.getElementById(i)};
 function route(){
   if(!ready)return;
   var r=location.hash.slice(1);if(VIEWS.indexOf(r)<0)r="home";
+  if(recovering)r="reset";
   if(r==="request"||r==="mine"||r==="supplier"||r==="admin"){
     if(!me)r="login";
     else if(me.role==="admin")r="admin";
@@ -240,6 +254,7 @@ async function load(sess){
   loadN();
 }
 SB.auth.onAuthStateChange(function(ev,s){
+  if(ev==="PASSWORD_RECOVERY"){recovering=true;setTimeout(function(){load(s)},0);return}
   var id=s&&s.user.id;
   if(ev!=="INITIAL_SESSION"&&ev!=="SIGNED_OUT"&&(!id||(me&&me.id===id)))return;
   setTimeout(function(){load(s)},0);
@@ -247,7 +262,7 @@ SB.auth.onAuthStateChange(function(ev,s){
 Array.prototype.forEach.call(document.querySelectorAll(".out"),function(a){a.onclick=function(){SB.auth.signOut()}});
 $("tg").onclick=function(){
   mode=mode==="in"?"up":"in";var up=mode==="up";
-  $("sg").classList.toggle("hide",!up);$("nm").required=up;$("bn").required=up&&role==="supplier";
+  $("sg").classList.toggle("hide",!up);$("nm").required=up;$("p2w").classList.toggle("hide",!up);$("pw2").required=up;$("fp").classList.toggle("hide",up);$("bn").required=up&&role==="supplier";
   $("lt").textContent=up?"حساب جديد":"دخول";$("sb").textContent=up?"سجّل":"دخول";
   this.textContent=up?"عندي حساب، دخول":"معنديش حساب، سجّل حساب جديد";
 };
@@ -263,6 +278,8 @@ $("lf").onsubmit=async function(e){
     r=await SB.auth.signInWithPassword({email:em,password:pw});
     if(r.error){m.textContent="الإيميل أو كلمة السر غلط";return}
   }else{
+    if($("pw").value.length<8){m.textContent="كلمة السر لازم تكون 8 حروف أو أكتر";return}
+    if($("pw").value!==$("pw2").value){m.textContent="كلمتين السر مش متطابقين";return}
     r=await SB.auth.signUp({email:em,password:pw,options:{data:{full_name:$("nm").value,phone:$("ph").value,role:role}}});
     if(r.error){m.textContent="مشكلة في التسجيل: "+r.error.message;return}
     if(!r.data.session){m.textContent="اتبعتلك إيميل تأكيد. أكّده وبعدين سجّل دخول.";return}
@@ -518,6 +535,22 @@ function drawN(){
     return '<div class="ni'+(x.is_read?'':' un')+'" data-n="'+x.id+'" data-l="'+esc(x.link||"")+'"><b>'+esc(x.title)+'</b><div class="meta">'+esc(x.body||"")+'</div><div class="mute" style="font-size:12px">'+new Date(x.created_at).toLocaleString("ar-EG")+'</div></div>';
   }).join(""):'<p class="mute">مفيش إشعارات لسه.</p>';
 }
+$("fp").onclick=async function(){
+  var em=$("em").value.trim(),m=$("msg");
+  if(!em){m.textContent="اكتب الإيميل فوق الأول";return}
+  m.textContent="لحظة...";
+  var r=await SB.auth.resetPasswordForEmail(em,{redirectTo:location.origin+location.pathname});
+  m.textContent=r.error?"مقدرتش أبعت الرابط: "+r.error.message:"لو الإيميل مسجّل عندنا، هيوصلك رابط لتغيير كلمة السر. شوف الـ Spam كمان.";
+};
+$("rf").onsubmit=async function(e){
+  e.preventDefault();var m=$("rm"),a=$("np").value;
+  if(a.length<8){m.textContent="كلمة السر لازم تكون 8 حروف أو أكتر";return}
+  if(a!==$("np2").value){m.textContent="كلمتين السر مش متطابقين";return}
+  var r=await SB.auth.updateUser({password:a});
+  if(r.error){m.textContent="مقدرتش أغيّر كلمة السر: "+r.error.message;return}
+  recovering=false;m.textContent="";alert("اتغيّرت كلمة السر.");
+  location.hash=me?dest():"home";route();
+};
 nbInit();
 setInterval(function(){if(me&&!document.hidden)loadN()},30000);
 document.addEventListener("visibilitychange",function(){if(me&&!document.hidden)loadN()});
