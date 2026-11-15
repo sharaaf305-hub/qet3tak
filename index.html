@@ -208,7 +208,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--org)}
 <section id="v-admin" class="hide">
  <header><a class="back" href="#home">← الرئيسية</a><a class="back out" href="#home">خروج</a></header>
  <div class="wrap"><h2>لوحة الأدمن</h2>
- <div class="stats" id="as"></div><div id="ac" style="margin-top:12px"></div><h2>طلبات توثيق التجار</h2><div id="av"></div>
+ <div class="stats" id="as"></div><div id="ac" style="margin-top:12px"></div><h2>النزاعات</h2><div id="ad"></div><h2>طلبات توثيق التجار</h2><div id="av"></div>
  <h2>التجار</h2><div id="al"></div></div>
 </section>
 <script>
@@ -246,7 +246,7 @@ function route(){
   if(r==="request"){$("f").classList.remove("hide");$("done").classList.add("hide")}
   if(r==="mine")loadMine();
   if(r==="supplier")loadSup();
-  if(r==="admin"){loadAdmin();loadAdminExtra();loadAdminVer();}
+  if(r==="admin"){loadAdmin();loadAdminExtra();loadAdminVer();loadAdminDisp();}
   window.scrollTo(0,0);
 }
 window.addEventListener("hashchange",route);
@@ -338,24 +338,24 @@ var one=function(x){return Array.isArray(x)?x[0]:x};
 var OS={confirmed:"تم تأكيد الأوردر",preparing:"التاجر بيجهّز القطعة",shipped:"القطعة اتشحنت",completed:"مكتمل",cancelled:"ملغي",disputed:"فيه مشكلة"};
 async function loadMine(){
   var L=$("ml");L.innerHTML='<p class="mute">بحمّل...</p>';
-  var r=await SB.from("spare_part_requests").select("id,request_number,part_name,description,status,quotations(id,supplier_id,price,condition,compatibility_note,warranty_note,delivery_cost,delivery_days,status),orders(id,order_number,status,supplier_id,shipping_method,tracking_number)").eq("customer_id",me.id).order("created_at",{ascending:false});
+  var r=await SB.from("spare_part_requests").select("id,request_number,part_name,description,status,quotations(id,supplier_id,price,condition,compatibility_note,warranty_note,delivery_cost,delivery_days,status),orders(id,order_number,status,supplier_id,shipping_method,tracking_number,reviews(rating))").eq("customer_id",me.id).order("created_at",{ascending:false});
   if(r.error){L.innerHTML='<p class="mute">حصلت مشكلة في التحميل</p>';return}
   if(!r.data.length){L.innerHTML='<p class="mute">لسه معندكش طلبات.</p>';return}
   var ids=[],S={};
   r.data.forEach(function(x){x.quotations.forEach(function(q){if(ids.indexOf(q.supplier_id)<0)ids.push(q.supplier_id)})});
-  if(ids.length){var sp=await SB.from("supplier_profiles").select("id,business_name,contact_phone,verified").in("id",ids);(sp.data||[]).forEach(function(s){S[s.id]=s})}
+  if(ids.length){var sp=await SB.from("supplier_profiles").select("id,business_name,contact_phone,verified,rating_avg,rating_count").in("id",ids);(sp.data||[]).forEach(function(s){S[s.id]=s})}
   L.innerHTML=r.data.map(function(x){
     var od=one(x.orders),st=od?OS[od.status]:ST[x.status==="open"&&x.quotations.length?"quoted":x.status];
     var ql=od?x.quotations.filter(function(q){return q.status==="accepted"}):x.quotations;
     var qs=ql.map(function(q){
       var s=S[q.supplier_id]||{},sel=q.status==="accepted";
-      return '<div class="card q'+(sel?' sel':'')+'" style="margin-top:8px"><div style="display:flex;justify-content:space-between"><b>'+esc(s.business_name||"تاجر")+(s.verified?' ✓ موثّق':'')+'</b><span class="tag">'+CL[q.condition]+'</span></div><div class="pr">'+q.price+' ج.م</div><div class="meta">توصيل '+q.delivery_cost+' ج.م · الإجمالي '+(+q.price+ +q.delivery_cost)+' ج.م'+(q.delivery_days?' · '+q.delivery_days+' يوم':'')+(q.warranty_note?'<br>الضمان: '+esc(q.warranty_note):'')+(q.compatibility_note?'<br>التوافق: '+esc(q.compatibility_note):'')+'</div>'+(!od&&x.status!=="accepted"?'<button class="btn sm" style="margin-top:8px" data-q="'+q.id+'">اختار العرض ده</button>':'')+' <button class="btn sm ghost" style="margin-top:8px" data-c="'+x.id+'|'+q.supplier_id+'" data-t="'+esc(s.business_name||"التاجر")+'">💬 شات</button></div>';
+      return '<div class="card q'+(sel?' sel':'')+'" style="margin-top:8px"><div style="display:flex;justify-content:space-between"><b>'+esc(s.business_name||"تاجر")+(s.verified?' ✓ موثّق':'')+(s.rating_count?' ★ '+s.rating_avg+' ('+s.rating_count+')':'')+'</b><span class="tag">'+CL[q.condition]+'</span></div><div class="pr">'+q.price+' ج.م</div><div class="meta">توصيل '+q.delivery_cost+' ج.م · الإجمالي '+(+q.price+ +q.delivery_cost)+' ج.م'+(q.delivery_days?' · '+q.delivery_days+' يوم':'')+(q.warranty_note?'<br>الضمان: '+esc(q.warranty_note):'')+(q.compatibility_note?'<br>التوافق: '+esc(q.compatibility_note):'')+'</div>'+(!od&&x.status!=="accepted"?'<button class="btn sm" style="margin-top:8px" data-q="'+q.id+'">اختار العرض ده</button>':'')+' <button class="btn sm ghost" style="margin-top:8px" data-c="'+x.id+'|'+q.supplier_id+'" data-t="'+esc(s.business_name||"التاجر")+'">💬 شات</button></div>';
     }).join("");
     var ob="";
-    if(od){var sp=S[od.supplier_id]||{};
+    if(od){var sp=S[od.supplier_id]||{},rvw=one(od.reviews);
       ob='<div class="warn" style="margin-top:10px">أوردر <span style="direction:ltr;display:inline-block">'+esc(od.order_number)+'</span><br>'+OS[od.status]+'<br>التاجر: '+esc(sp.business_name||"")+' · '+esc(sp.contact_phone||"")+(od.shipping_method?'<br>الشحن: '+esc(od.shipping_method)+(od.tracking_number?' · رقم التتبع: '+esc(od.tracking_number):''):'')
        +(od.status==="confirmed"?'<br><button class="btn sm ghost" style="margin-top:8px" data-o="'+od.id+'" data-s="cancelled">إلغاء الأوردر</button>':'')
-       +(od.status==="shipped"?'<br><button class="btn sm" style="margin-top:8px" data-o="'+od.id+'" data-s="completed">استلمت القطعة ✓</button> <button class="btn sm ghost" style="margin-top:8px" data-o="'+od.id+'" data-s="disputed">فيه مشكلة</button>':'')+'</div>';}
+       +(od.status==="shipped"?'<br><button class="btn sm" style="margin-top:8px" data-o="'+od.id+'" data-s="completed">استلمت القطعة ✓</button> <button class="btn sm ghost" style="margin-top:8px" data-o="'+od.id+'" data-s="disputed">فيه مشكلة</button>':'')+(od.status==="completed"?(rvw?'<br>تقييمك: '+'★'.repeat(rvw.rating)+'☆'.repeat(5-rvw.rating):'<br><button class="btn sm" style="margin-top:8px" data-rv="'+od.id+'">قيّم التاجر ⭐</button>'):'')+'</div>';}
     return '<div class="card" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+esc(x.part_name||"طلب قطعة")+'</b><span class="tag">'+st+'</span></div><div class="mute" style="direction:ltr;text-align:right">'+esc(x.request_number)+'</div><div class="meta" style="white-space:pre-line">'+esc(x.description)+'</div>'+ob+(qs||'<p class="mute">مستنيين عروض التجار...</p>')+'</div>';
   }).join("");
 }
@@ -370,6 +370,11 @@ async function setOrd(e,reload){
 $("ml").onclick=async function(e){
   var c=e.target.getAttribute("data-c");
   if(c){var p=c.split("|");openChat(p[0],p[1],e.target.getAttribute("data-t")||"شات مع التاجر");return}
+  var rv=e.target.getAttribute("data-rv");
+  if(rv){var rd=await rateDialog();if(!rd)return;
+    var rr=await SB.rpc("submit_review",{o:rv,stars:rd.s,txt:rd.c});
+    if(rr.error){alert("مقدرتش أحفظ التقييم");return}
+    loadMine();return}
   var q=e.target.getAttribute("data-q");
   if(q){var ad=prompt("اكتب عنوان التسليم بالتفصيل (الشارع، المنطقة، علامة مميزة) ورقم موبايل للتواصل لو مختلف:");if(!ad||ad.trim().length<8){alert("اكتب العنوان كامل");return}e.target.disabled=true;var a=await SB.rpc("accept_quotation",{q:q,addr:ad.trim()});
     if(a.error){alert("مقدرتش أأكّد العرض: "+a.error.message);e.target.disabled=false;return}
@@ -579,7 +584,7 @@ function chInit(){
     loadChat();
   };
 }
-function openChat(r,s,title){CK={r:r,s:s};$("ct").textContent=title||"شات";CH.classList.remove("hide");loadChat();clearInterval(CT);CT=setInterval(loadChat,5000)}
+function openChat(r,s,title){CK={r:r,s:s};$("cf").style.display=(me&&me.role==="admin")?"none":"flex";$("ct").textContent=title||"شات";CH.classList.remove("hide");loadChat();clearInterval(CT);CT=setInterval(loadChat,5000)}
 function closeChat(){CH.classList.add("hide");CK=null;clearInterval(CT)}
 async function loadChat(){
   if(!CK)return;
@@ -587,7 +592,7 @@ async function loadChat(){
   if(!CK||r.error)return;
   var box=$("cm"),atEnd=box.scrollHeight-box.scrollTop-box.clientHeight<80;
   box.innerHTML=(r.data||[]).length?r.data.map(function(m){
-    return '<div class="mb '+(m.sender_id===me.id?'me':'th')+'">'+esc(m.body)+'<div style="font-size:11px;opacity:.7;margin-top:2px">'+new Date(m.created_at).toLocaleTimeString("ar-EG",{hour:"2-digit",minute:"2-digit"})+'</div></div>';
+    return '<div class="mb '+(m.sender_id===me.id?'me':'th')+'">'+(me.role==="admin"?'<b style="font-size:12px">'+(m.sender_id===k.s?"التاجر":"العميل")+'</b><br>':'')+esc(m.body)+'<div style="font-size:11px;opacity:.7;margin-top:2px">'+new Date(m.created_at).toLocaleTimeString("ar-EG",{hour:"2-digit",minute:"2-digit"})+'</div></div>';
   }).join(""):'<p class="mute">ابدأ المحادثة. اسأل عن التوافق أو الحالة أو الضمان.</p>';
   if(atEnd)box.scrollTop=box.scrollHeight;
 }
@@ -648,6 +653,40 @@ $("av").onclick=async function(e){
   var r=await SB.rpc("review_verification",{sid:v,ok:ok,reason:note});
   if(r.error){alert("مقدرتش أحفظ");e.target.disabled=false;return}
   loadAdminVer();
+};
+function rateDialog(){
+  return new Promise(function(res){
+    var d=document.createElement("div");d.className="chat";
+    d.innerHTML='<div class="ch"><b>قيّم التاجر</b></div><div class="cm"><label>التقييم</label><select id="rd1"><option value="5">★★★★★ ممتاز</option><option value="4">★★★★ كويس</option><option value="3">★★★ عادي</option><option value="2">★★ ضعيف</option><option value="1">★ وحش</option></select><label>تعليق (اختياري)</label><textarea id="rd2" rows="3" maxlength="500"></textarea><button class="btn" id="rd3" type="button">إرسال التقييم</button><button class="btn ghost" id="rd4" type="button">إلغاء</button></div>';
+    document.body.appendChild(d);
+    $("rd3").onclick=function(){var v={s:+$("rd1").value,c:$("rd2").value.trim()};d.remove();res(v)};
+    $("rd4").onclick=function(){d.remove();res(null)};
+  });
+}
+async function loadAdminDisp(){
+  var el=$("ad");
+  var r=await SB.from("orders").select("id,order_number,request_id,supplier_id,item_price,spare_part_requests(part_name),customer:profiles!customer_id(full_name,phone)").eq("status","disputed").order("updated_at");
+  if(r.error){el.innerHTML="";return}
+  var d=r.data||[];
+  if(!d.length){el.innerHTML='<p class="mute">مفيش نزاعات مفتوحة.</p>';return}
+  var S={},sp=await SB.from("supplier_profiles").select("id,business_name,contact_phone").in("id",d.map(function(x){return x.supplier_id}));
+  (sp.data||[]).forEach(function(x){S[x.id]=x});
+  el.innerHTML=d.map(function(x){
+    var rq=one(x.spare_part_requests)||{},cu=one(x.customer)||{},s=S[x.supplier_id]||{};
+    return '<div class="card" style="margin-bottom:10px"><b>'+esc(rq.part_name||"أوردر")+'</b> <span class="mute" style="direction:ltr;display:inline-block">'+esc(x.order_number)+'</span><div class="meta">العميل: '+esc(cu.full_name||"")+' · '+esc(cu.phone||"")+'<br>التاجر: '+esc(s.business_name||"")+' · '+esc(s.contact_phone||"")+'<br>السعر: '+x.item_price+' ج.م</div><button class="btn sm ghost" style="margin-top:8px" data-ch="'+x.request_id+'|'+x.supplier_id+'">اقرأ الشات</button> <button class="btn sm" style="margin-top:8px" data-rd="'+x.id+'" data-w="customer">لصالح العميل</button> <button class="btn sm" style="margin-top:8px" data-rd="'+x.id+'" data-w="supplier">لصالح التاجر</button></div>';
+  }).join("");
+}
+$("ad").onclick=async function(e){
+  var ch=e.target.getAttribute("data-ch");
+  if(ch){var p=ch.split("|");openChat(p[0],p[1],"شات النزاع (قراءة فقط)");return}
+  var o=e.target.getAttribute("data-rd");if(!o)return;
+  var w=e.target.getAttribute("data-w");
+  var note=prompt("سبب القرار (هيوصل للطرفين، ممكن تسيبه فاضي):");if(note===null)return;
+  if(!confirm(w==="customer"?"إلغاء الأوردر لصالح العميل؟ مفيش عمولة هتتسجل.":"إكمال الأوردر لصالح التاجر؟ هتتسجل العمولة."))return;
+  e.target.disabled=true;
+  var r=await SB.rpc("resolve_dispute",{o:o,outcome:w,reason:note||null});
+  if(r.error){alert("مقدرتش أحفظ القرار");e.target.disabled=false;return}
+  loadAdminDisp();
 };
 nbInit();chInit();
 setInterval(function(){if(me&&!document.hidden)loadN()},30000);
