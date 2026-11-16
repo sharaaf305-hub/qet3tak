@@ -50,7 +50,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--org)}
 .q.sel{border:2px solid var(--org)}.q .pr{font-size:20px;font-weight:800}.q .meta{font-size:13px;color:var(--mute)}
 .warn{background:var(--card);border:1px solid var(--org);border-radius:12px;padding:10px 12px;font-size:14px}
 .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
-.bell{position:fixed;left:14px;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);z-index:60;width:52px;height:52px;border-radius:50%;border:0;background:var(--org);color:#fff;font-size:22px;box-shadow:0 4px 14px rgba(0,0,0,.35);cursor:pointer}
+.bell{position:fixed;left:14px;bottom:calc(env(safe-area-inset-bottom,0px) + 80px);z-index:60;width:52px;height:52px;border-radius:50%;border:0;background:var(--org);color:#fff;font-size:22px;box-shadow:0 4px 14px rgba(0,0,0,.35);cursor:pointer}
 .bell.hide,.npanel.hide,.nc.hide{display:none}
 .nc{position:absolute;top:-4px;right:-4px;min-width:20px;height:20px;border-radius:10px;background:#d92d20;color:#fff;font-size:12px;line-height:20px;padding:0 5px;font-family:inherit}
 .npanel{position:fixed;left:0;right:0;bottom:0;z-index:70;max-height:70vh;overflow:auto;background:var(--card);color:var(--ink);border-top:1px solid var(--line);border-radius:16px 16px 0 0;padding:14px 16px calc(env(safe-area-inset-bottom,0px) + 16px);box-shadow:0 -6px 20px rgba(0,0,0,.3)}
@@ -66,6 +66,14 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--org)}
 .mb.th{background:var(--card);border:1px solid var(--line);margin-inline-start:auto}
 .cf{display:flex;gap:8px;align-items:center;padding:10px 12px calc(env(safe-area-inset-bottom,0px) + 10px);border-top:1px solid var(--line);background:var(--card)}
 .cf input{flex:1}
+.av{width:84px;height:84px;border-radius:50%;object-fit:cover;background:var(--org);color:#fff;display:grid;place-items:center;font-size:34px;font-weight:800;margin:0 auto 8px}
+.av.sm{width:28px;height:28px;font-size:14px;margin:0;display:inline-block;vertical-align:middle;line-height:28px;text-align:center}
+body.hasnav{padding-bottom:calc(72px + env(safe-area-inset-bottom,0px))}
+.navb{position:fixed;left:0;right:0;bottom:0;z-index:55;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+.navb.hide{display:none}
+.navb a{flex:1;text-align:center;padding:8px 4px;color:var(--mute);text-decoration:none;font-size:12px;font-weight:600}
+.navb a span{display:block;font-size:20px}
+.navb a.on{color:var(--org)}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <link rel="manifest" href="manifest.json">
@@ -78,7 +86,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--org)}
 
 <!-- الصفحة الرئيسية -->
 <section id="v-home">
-  <header><div class="logo">قطع<b>تك</b><small>QET3TAK</small></div><a class="back" href="#login">دخول / حساب جديد</a></header>
+  <header><div class="logo">قطع<b>تك</b><small>QET3TAK</small></div></header>
   <div class="hero"><div class="wrap" style="padding-bottom:0">
     <h1>مش لاقي قطعتك؟<br>إحنا ندورلك عليها.</h1>
     <form class="search" onsubmit="event.preventDefault();location.hash='request'">
@@ -161,8 +169,9 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--org)}
 </section>
 
 <section id="v-login" class="hide">
- <header><a class="back" href="#home">← رجوع</a><div class="logo">قطع<b>تك</b></div></header>
- <div class="wrap"><h2 id="lt">دخول</h2>
+ <header><div class="logo">قطع<b>تك</b><small>QET3TAK</small></div></header>
+ <div class="wrap"><p style="font-size:20px;font-weight:800;margin:24px 0 4px">مش لاقي قطعتك؟<br>إحنا ندورلك عليها.</p><div class="seg" id="mseg" style="margin:14px 0 6px"><button type="button" class="on" data-m="in">تسجيل دخول</button><button type="button" data-m="up">تسجيل جديد</button></div>
+ <h2 id="lt">تسجيل دخول</h2>
  <form id="lf">
   <label for="em">الإيميل</label><input id="em" type="email" required autocomplete="email">
   <label for="pw">كلمة السر</label><input id="pw" type="password" minlength="6" required autocomplete="current-password">
@@ -171,15 +180,16 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--org)}
    <div class="seg" id="seg" style="margin-top:14px"><button type="button" class="on" data-r="customer">عميل</button><button type="button" data-r="supplier">تاجر</button></div>
    <label for="nm">الاسم</label><input id="nm">
    <label for="ph">رقم الموبايل</label><input id="ph" type="tel" inputmode="tel">
+   <label for="bd">تاريخ الميلاد</label><input id="bd" type="date">
    <div id="sx" class="hide"><label for="bn">اسم المحل</label><input id="bn"><label for="ad">عنوان المحل</label><input id="ad">
    <p class="mute">حساب التاجر بيتراجع من الأدمن قبل ما تستقبل طلبات.</p></div>
   </div>
   <p class="mute" style="font-size:12px">بالتسجيل أنت موافق على <a href="legal.html#terms">شروط الاستخدام</a> و<a href="legal.html#privacy">سياسة الخصوصية</a>.</p>
   <p id="msg" class="mute"></p>
-  <button class="btn" type="submit" id="sb">دخول</button>
+  <button class="btn" type="submit" id="sb">تسجيل دخول</button>
   <button class="btn ghost" type="button" id="fp">نسيت كلمة السر؟</button>
  </form>
- <button class="btn ghost" id="tg" type="button">معنديش حساب، سجّل حساب جديد</button></div>
+ <button class="btn ghost" id="tg" type="button">معنديش حساب، تسجيل جديد</button></div>
 </section>
 <section id="v-reset" class="hide">
  <header><a class="back" href="#home">← الرئيسية</a><div class="logo">قطع<b>تك</b></div></header>
@@ -192,16 +202,48 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--org)}
  </form></div>
 </section>
 <section id="v-mine" class="hide">
- <header><a class="back" href="#home">← الرئيسية</a><a class="back out" href="#home">خروج</a></header>
- <div class="wrap"><h2>طلباتي</h2><a class="btn sm" href="#request">+ طلب جديد</a><div id="ml" style="margin-top:12px"></div><p style="text-align:center;margin-top:30px"><a href="#" class="delacc mute" style="font-size:13px">حذف حسابي</a></p></div>
+ <header><div class="logo">قطع<b>تك</b></div></header>
+ <div class="wrap"><h2>طلباتي وعروضي</h2><a class="btn sm" href="#request">+ طلب جديد</a><div id="ml" style="margin-top:12px"></div></div>
 </section>
 <section id="v-supplier" class="hide">
- <header><a class="back" href="#home">← الرئيسية</a><a class="back out" href="#home">خروج</a></header>
- <div class="wrap"><div id="sw"></div><div id="sv"></div><h2>أوردراتي</h2><div id="so"></div><h2>الطلبات المفتوحة</h2>
- <input id="sq" placeholder="ابحث بالموديل أو اسم القطعة"><div id="sl" style="margin-top:10px"></div><p style="text-align:center;margin-top:30px"><a href="#" class="delacc mute" style="font-size:13px">حذف حسابي</a></p></div>
+ <header><div class="logo">قطع<b>تك</b></div></header>
+ <div class="wrap"><div id="sw"></div><h2>الطلبات المفتوحة</h2>
+ <input id="sq" placeholder="ابحث بالموديل أو اسم القطعة"><div id="sl" style="margin-top:10px"></div></div>
+</section>
+<section id="v-orders" class="hide">
+ <header><div class="logo">قطع<b>تك</b></div></header>
+ <div class="wrap"><h2>أوردراتي</h2><div id="so"></div></div>
+</section>
+<section id="v-account" class="hide">
+ <header><div class="logo">قطع<b>تك</b></div></header>
+ <div class="wrap">
+  <div class="card" id="ap" style="text-align:center;margin-top:16px"></div>
+  <h2>بياناتي</h2>
+  <form id="af">
+   <label for="a_img">صورة الحساب</label><input id="a_img" type="file" accept="image/*">
+   <label for="a_nm">الاسم</label><input id="a_nm" required>
+   <label for="a_ph">رقم الموبايل</label><input id="a_ph" type="tel" inputmode="tel">
+   <label for="a_bd">تاريخ الميلاد</label><input id="a_bd" type="date">
+   <div id="a_cu"><div class="row"><div><label for="a_gv">المحافظة</label><input id="a_gv"></div><div><label for="a_ct">المدينة</label><input id="a_ct"></div></div></div>
+   <div id="a_su" class="hide"><label for="a_bn">اسم المحل</label><input id="a_bn"><label for="a_ad">عنوان المحل</label><input id="a_ad"><label for="a_cp">رقم تواصل المحل</label><input id="a_cp" type="tel" inputmode="tel"></div>
+   <p id="a_m" class="mute"></p>
+   <button class="btn" type="submit">حفظ التعديلات</button>
+  </form>
+  <div id="sv"></div>
+  <h2 id="a_set">إعدادات الحساب</h2>
+  <div class="card">
+   <b>تغيير كلمة السر</b>
+   <label for="a_p1">كلمة السر الجديدة</label><input id="a_p1" type="password" autocomplete="new-password">
+   <label for="a_p2">تأكيد كلمة السر</label><input id="a_p2" type="password" autocomplete="new-password">
+   <button class="btn sm" id="a_pb" type="button" style="margin-top:10px">تغيير كلمة السر</button>
+   <p class="mute" style="margin-top:16px"><a href="legal.html#privacy">سياسة الخصوصية</a> · <a href="legal.html#terms">شروط الاستخدام</a></p>
+   <p><a href="#" class="delacc mute" style="font-size:13px">حذف حسابي</a></p>
+  </div>
+  <button class="btn ghost" id="a_out" type="button" style="margin-top:16px">تسجيل خروج</button>
+ </div>
 </section>
 <section id="v-admin" class="hide">
- <header><a class="back" href="#home">← الرئيسية</a><a class="back out" href="#home">خروج</a></header>
+ <header><div class="logo">قطع<b>تك</b></div></header>
  <div class="wrap"><h2>لوحة الأدمن</h2>
  <div class="stats" id="as"></div><div id="ac" style="margin-top:12px"></div><h2>النزاعات</h2><div id="ad"></div><h2>طلبات توثيق التجار</h2><div id="av"></div>
  <h2>التجار</h2><div id="al"></div></div>
@@ -213,7 +255,7 @@ var SB=supabase.createClient("https://gwxgwuzbjngqxebyrkqt.supabase.co","sb_publ
 var me=null,ready=false,mode="in",role="customer",SUP=[],QD={},IMG={};
 var CL={original:"أصلي",aftermarket:"تجاري",used:"مستعمل"};
 var ST={open:"مفتوح",quoted:"وصلت عروض",accepted:"تم الاختيار",closed:"مقفول",cancelled:"ملغي"};
-var VIEWS=["home","request","login","mine","supplier","admin","reset"];
+var VIEWS=["home","request","login","mine","supplier","orders","account","admin","reset"];
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 var G={"ثلاث عجلات (باجاج وتوكتوك)":{"باجاج":["RE Compact","RE 4S","RE Maxima"],"توكتوك":["توكتوك عام"],"TVS King":["King"],"بياجيو":["Ape"]},
 "موتوسيكلات":{"هوندا موتوسيكل":["CG125","CB"],"ياماها":["YBR","FZ"],"سوزوكي موتوسيكل":["GN125"],"TVS":["Apache"],"SYM":["Symphony"],"باجاج موتوسيكل":["Pulsar","Boxer"],"فيسبا":["Primavera"]},
@@ -226,33 +268,40 @@ var models={};
 $("make").innerHTML='<option value="">اختار</option>'+Object.keys(G).map(function(g){return'<optgroup label="'+g+'">'+Object.keys(G[g]).map(function(m){models[m]=G[g][m];return'<option>'+m+'</option>'}).join("")+'</optgroup>'}).join("")+'<option>أخرى</option>';
 var $=function(i){return document.getElementById(i)};
 
+var ALLOW={customer:["home","request","mine","account"],supplier:["supplier","orders","account"],admin:["admin","account"]};
+var NAVS={customer:[["home","🏠","الرئيسية"],["mine","📋","العروض"],["account","👤","حسابي"]],supplier:[["supplier","📥","الطلبات"],["orders","📦","أوردراتي"],["account","👤","حسابي"]],admin:[["admin","🛠️","الأدمن"],["account","👤","حسابي"]]};
+var NV=null;
+function navInit(){NV=document.createElement("nav");NV.className="navb hide";document.body.appendChild(NV)}
+function navDraw(r){
+  if(!NV)return;
+  if(!me||r==="reset"||r==="login"){NV.classList.add("hide");document.body.classList.remove("hasnav");return}
+  var it=NAVS[me.role]||NAVS.customer;
+  NV.innerHTML=it.map(function(x){return '<a href="#'+x[0]+'" class="'+((x[0]===r||(x[0]==="home"&&r==="request"))?'on':'')+'"><span>'+x[1]+'</span>'+x[2]+'</a>'}).join("");
+  NV.classList.remove("hide");document.body.classList.add("hasnav");
+}
 function route(){
   if(!ready)return;
-  var r=location.hash.slice(1);if(VIEWS.indexOf(r)<0)r="home";
+  var r=location.hash.slice(1);if(VIEWS.indexOf(r)<0)r="";
   if(recovering)r="reset";
-  if(r==="request"||r==="mine"||r==="supplier"||r==="admin"){
-    if(!me)r="login";
-    else if(me.role==="admin")r="admin";
-    else if(r==="admin")r=me.role==="supplier"?"supplier":"mine";
-    else if(r==="supplier"&&me.role!=="supplier")r="mine";
-    else if(r==="mine"&&me.role==="supplier")r="supplier";
-  }
+  else if(!me)r="login";
+  else{var al=ALLOW[me.role]||ALLOW.customer;if(al.indexOf(r)<0)r=al[0]}
   VIEWS.forEach(function(v){$("v-"+v).classList.toggle("hide",v!==r)});
   if(r==="request"){$("f").classList.remove("hide");$("done").classList.add("hide")}
   if(r==="mine")loadMine();
   if(r==="supplier")loadSup();
+  if(r==="orders")loadOrdersSup();
   if(r==="admin"){loadAdmin();loadAdminExtra();loadAdminVer();loadAdminDisp();}
+  if(r==="account")loadAccount();
+  navDraw(r);
   window.scrollTo(0,0);
 }
 window.addEventListener("hashchange",route);
-function dest(){return me.role==="admin"?"admin":me.role==="supplier"?"supplier":"mine"}
+function dest(){return me.role==="admin"?"admin":me.role==="supplier"?"supplier":"home"}
 async function load(sess){
   me=null;
   if(sess){var p=await SB.from("profiles").select("role,full_name").eq("id",sess.user.id).maybeSingle();
     if(p.data)me={id:sess.user.id,role:p.data.role,name:p.data.full_name}}
   ready=true;
-  var a=document.querySelector("#v-home header .back");
-  a.textContent=me?"حسابي":"دخول / حساب جديد";a.setAttribute("href",me?"#"+dest():"#login");
   if(me&&location.hash==="#login")location.hash=dest();
   route();
   loadN();
@@ -264,12 +313,17 @@ SB.auth.onAuthStateChange(function(ev,s){
   setTimeout(function(){load(s)},0);
 });
 Array.prototype.forEach.call(document.querySelectorAll(".out"),function(a){a.onclick=function(){SB.auth.signOut()}});
-$("tg").onclick=function(){
-  mode=mode==="in"?"up":"in";var up=mode==="up";
-  $("sg").classList.toggle("hide",!up);$("nm").required=up;$("p2w").classList.toggle("hide",!up);$("pw2").required=up;$("fp").classList.toggle("hide",up);$("bn").required=up&&role==="supplier";
-  $("lt").textContent=up?"حساب جديد":"دخول";$("sb").textContent=up?"سجّل":"دخول";
-  this.textContent=up?"عندي حساب، دخول":"معنديش حساب، سجّل حساب جديد";
-};
+function setMode(up){
+  mode=up?"up":"in";
+  $("sg").classList.toggle("hide",!up);$("nm").required=up;$("bd").required=up;
+  $("p2w").classList.toggle("hide",!up);$("pw2").required=up;$("fp").classList.toggle("hide",up);
+  $("bn").required=up&&role==="supplier";
+  $("lt").textContent=up?"تسجيل جديد":"تسجيل دخول";$("sb").textContent=up?"سجّل":"تسجيل دخول";
+  $("tg").textContent=up?"عندي حساب، تسجيل دخول":"معنديش حساب، تسجيل جديد";
+  Array.prototype.forEach.call($("mseg").children,function(x){x.classList.toggle("on",x.getAttribute("data-m")===mode)});
+}
+$("tg").onclick=function(){setMode(mode==="in")};
+$("mseg").onclick=function(e){var k=e.target.getAttribute("data-m");if(k)setMode(k==="up")};
 $("seg").onclick=function(e){
   var r=e.target.getAttribute("data-r");if(!r)return;role=r;
   Array.prototype.forEach.call(this.children,function(b){b.classList.toggle("on",b.getAttribute("data-r")===r)});
@@ -284,9 +338,12 @@ $("lf").onsubmit=async function(e){
   }else{
     if($("pw").value.length<8){m.textContent="كلمة السر لازم تكون 8 حروف أو أكتر";return}
     if($("pw").value!==$("pw2").value){m.textContent="كلمتين السر مش متطابقين";return}
+    var bdv=$("bd").value,ag=(Date.now()-new Date(bdv).getTime())/31557600000;
+    if(!bdv||!(ag>=18&&ag<100)){m.textContent="اكتب تاريخ ميلادك صح. لازم يكون عمرك 18 سنة أو أكتر";return}
     r=await SB.auth.signUp({email:em,password:pw,options:{data:{full_name:$("nm").value,phone:$("ph").value,role:role}}});
     if(r.error){m.textContent="مشكلة في التسجيل: "+r.error.message;return}
     if(!r.data.session){m.textContent="اتبعتلك إيميل تأكيد. أكّده وبعدين سجّل دخول.";return}
+    await SB.from("profiles").update({birth_date:bdv}).eq("id",r.data.user.id);
     if(role==="supplier"){
       var q=await SB.from("supplier_profiles").insert({id:r.data.user.id,business_name:$("bn").value,address:$("ad").value,contact_phone:$("ph").value});
       if(q.error){m.textContent="اتعمل الحساب بس بيانات المحل ما اتحفظتش: "+q.error.message;return}
@@ -338,13 +395,13 @@ async function loadMine(){
   if(!r.data.length){L.innerHTML='<p class="mute">لسه معندكش طلبات.</p>';return}
   var ids=[],S={};
   r.data.forEach(function(x){x.quotations.forEach(function(q){if(ids.indexOf(q.supplier_id)<0)ids.push(q.supplier_id)})});
-  if(ids.length){var sp=await SB.from("supplier_profiles").select("id,business_name,contact_phone,verified,rating_avg,rating_count").in("id",ids);(sp.data||[]).forEach(function(s){S[s.id]=s})}
+  if(ids.length){var sp=await SB.from("supplier_profiles").select("id,business_name,contact_phone,verified,rating_avg,rating_count,avatar_path").in("id",ids);(sp.data||[]).forEach(function(s){S[s.id]=s})}
   L.innerHTML=r.data.map(function(x){
     var od=one(x.orders),st=od?OS[od.status]:ST[x.status==="open"&&x.quotations.length?"quoted":x.status];
     var ql=od?x.quotations.filter(function(q){return q.status==="accepted"}):x.quotations;
     var qs=ql.map(function(q){
       var s=S[q.supplier_id]||{},sel=q.status==="accepted";
-      return '<div class="card q'+(sel?' sel':'')+'" style="margin-top:8px"><div style="display:flex;justify-content:space-between"><b>'+esc(s.business_name||"تاجر")+(s.verified?' ✓ موثّق':'')+(s.rating_count?' ★ '+s.rating_avg+' ('+s.rating_count+')':'')+'</b><span class="tag">'+CL[q.condition]+'</span></div><div class="pr">'+q.price+' ج.م</div><div class="meta">توصيل '+q.delivery_cost+' ج.م · الإجمالي '+(+q.price+ +q.delivery_cost)+' ج.م'+(q.delivery_days?' · '+q.delivery_days+' يوم':'')+(q.warranty_note?'<br>الضمان: '+esc(q.warranty_note):'')+(q.compatibility_note?'<br>التوافق: '+esc(q.compatibility_note):'')+'</div>'+(!od&&x.status!=="accepted"?'<button class="btn sm" style="margin-top:8px" data-q="'+q.id+'">اختار العرض ده</button>':'')+' <button class="btn sm ghost" style="margin-top:8px" data-c="'+x.id+'|'+q.supplier_id+'" data-t="'+esc(s.business_name||"التاجر")+'">💬 شات</button></div>';
+      return '<div class="card q'+(sel?' sel':'')+'" style="margin-top:8px"><div style="display:flex;justify-content:space-between"><b>'+(s.avatar_path?'<img class="av sm" src="'+esc(avUrl(s.avatar_path))+'" alt=""> ':'')+esc(s.business_name||"تاجر")+(s.verified?' ✓ موثّق':'')+(s.rating_count?' ★ '+s.rating_avg+' ('+s.rating_count+')':'')+'</b><span class="tag">'+CL[q.condition]+'</span></div><div class="pr">'+q.price+' ج.م</div><div class="meta">توصيل '+q.delivery_cost+' ج.م · الإجمالي '+(+q.price+ +q.delivery_cost)+' ج.م'+(q.delivery_days?' · '+q.delivery_days+' يوم':'')+(q.warranty_note?'<br>الضمان: '+esc(q.warranty_note):'')+(q.compatibility_note?'<br>التوافق: '+esc(q.compatibility_note):'')+'</div>'+(!od&&x.status!=="accepted"?'<button class="btn sm" style="margin-top:8px" data-q="'+q.id+'">اختار العرض ده</button>':'')+' <button class="btn sm ghost" style="margin-top:8px" data-c="'+x.id+'|'+q.supplier_id+'" data-t="'+esc(s.business_name||"التاجر")+'">💬 شات</button></div>';
     }).join("");
     var ob="";
     if(od){var sp=S[od.supplier_id]||{},rvw=one(od.reviews);
@@ -443,7 +500,6 @@ async function loadSup(){
   var p=await SB.from("supplier_profiles").select("status").eq("id",me.id).maybeSingle();
   if(!p.data){W.innerHTML='<div class="warn" style="margin-top:16px">مفيش بيانات محل لحسابك.</div>';L.innerHTML="";return}
   if(p.data.status!=="approved"){W.innerHTML='<div class="warn" style="margin-top:16px">حسابك '+(p.data.status==="pending"?"قيد المراجعة":"موقوف")+'. هتشوف الطلبات وتبعت عروض بعد الموافقة.</div>';L.innerHTML="";return}
-  loadVerif();loadOrdersSup();
   var r=await SB.from("spare_part_requests").select("id,request_number,part_name,description,quantity,governorate,city,request_images(storage_path)").in("status",["open","quoted"]).order("created_at",{ascending:false}).limit(50);
   if(r.error){L.innerHTML='<p class="mute">حصلت مشكلة في التحميل</p>';return}
   var m=await SB.from("quotations").select("request_id").eq("supplier_id",me.id);
@@ -496,7 +552,7 @@ async function loadAdmin(){
 $("al").onclick=async function(e){
   var a=e.target.getAttribute("data-a"),i=e.target.getAttribute("data-i");if(!a)return;
   e.target.disabled=true;
-  var r=await SB.from("supplier_profiles").update({status:a}).eq("id",i);
+  var r=await SB.rpc("set_supplier_status",{sid:i,s:a});
   if(r.error){alert("مقدرتش أغيّر الحالة: "+r.error.message);e.target.disabled=false;return}
   loadAdmin();
 };
@@ -510,12 +566,16 @@ async function delAcc(){
     var im=await SB.from("request_images").select("storage_path");
     ps=(im.data||[]).map(function(x){return x.storage_path});
   }
+  var avp=[];
+  var pa=await SB.from("profiles").select("avatar_path").eq("id",me.id).maybeSingle();if(pa.data&&pa.data.avatar_path)avp.push(pa.data.avatar_path);
+  if(me.role==="supplier"){var sa=await SB.from("supplier_profiles").select("avatar_path").eq("id",me.id).maybeSingle();if(sa.data&&sa.data.avatar_path)avp.push(sa.data.avatar_path)}
   var dp2=[];
   if(me.role==="supplier"){var vv=await SB.from("supplier_verifications").select("id_path,commercial_path,shop_path").eq("supplier_id",me.id).maybeSingle();if(vv.data)dp2=[vv.data.id_path,vv.data.commercial_path,vv.data.shop_path]}
   var r=await SB.rpc("delete_my_account");
   if(r.error){var m=r.error.message||"";alert(/dues/.test(m)?"عليك مستحقات للمنصة. سدّدها الأول وبعدين احذف حسابك.":/active/.test(m)?"عندك أوردر لسه شغّال.":"مقدرتش أحذف الحساب.\nالسبب: "+m);return}
   if(ps.length){try{await SB.storage.from("request-images").remove(ps)}catch(e){}}
   if(dp2.length){try{await SB.storage.from("supplier-docs").remove(dp2);await SB.rpc("purge_my_verification")}catch(e){}}
+  try{if(avp.length)await SB.storage.from("avatars").remove(avp);await SB.from("profiles").update({avatar_path:null,birth_date:null}).eq("id",me.id);if(me.role==="supplier")await SB.from("supplier_profiles").update({avatar_path:null}).eq("id",me.id)}catch(e){}
   await SB.auth.signOut();alert("اتحذف حسابك.");location.hash="home";
 }
 Array.prototype.forEach.call(document.querySelectorAll(".delacc"),function(a){a.onclick=function(e){e.preventDefault();delAcc()}});
@@ -533,7 +593,7 @@ function nbInit(){
     var el=e.target.closest("[data-n]");if(!el)return;
     await SB.from("notifications").update({is_read:true}).eq("id",el.getAttribute("data-n"));
     NP.classList.add("hide");loadN();
-    var lk=el.getAttribute("data-l");if(lk)location.hash=lk;
+    var lk=el.getAttribute("data-l"),tt=el.getAttribute("data-t")||"";if(lk==="supplier"&&/أوردر/.test(tt))lk="orders";else if(/تقييم|توثيق/.test(tt))lk="account";if(lk)location.hash=lk;
   };
 }
 async function loadN(){
@@ -547,7 +607,7 @@ async function loadN(){
 }
 function drawN(){
   $("nl").innerHTML=NL.length?NL.map(function(x){
-    return '<div class="ni'+(x.is_read?'':' un')+'" data-n="'+x.id+'" data-l="'+esc(x.link||"")+'"><b>'+esc(x.title)+'</b><div class="meta">'+esc(x.body||"")+'</div><div class="mute" style="font-size:12px">'+new Date(x.created_at).toLocaleString("ar-EG")+'</div></div>';
+    return '<div class="ni'+(x.is_read?'':' un')+'" data-n="'+x.id+'" data-l="'+esc(x.link||"")+'" data-t="'+esc(x.title)+'"><b>'+esc(x.title)+'</b><div class="meta">'+esc(x.body||"")+'</div><div class="mute" style="font-size:12px">'+new Date(x.created_at).toLocaleString("ar-EG")+'</div></div>';
   }).join(""):'<p class="mute">مفيش إشعارات لسه.</p>';
 }
 $("fp").onclick=async function(){
@@ -683,7 +743,72 @@ $("ad").onclick=async function(e){
   if(r.error){alert("مقدرتش أحفظ القرار");e.target.disabled=false;return}
   loadAdminDisp();
 };
-nbInit();chInit();
+function avUrl(p){return p?SB.storage.from("avatars").getPublicUrl(p).data.publicUrl:""}
+function avHtml(p,n){return p?'<img class="av" src="'+esc(avUrl(p))+'" alt="">':'<div class="av">'+esc(((n||"").trim().charAt(0))||"؟")+'</div>'}
+var ACC=null;
+async function loadAccount(){
+  var P=$("ap");P.innerHTML='<p class="mute">بحمّل...</p>';
+  var q=await SB.from("profiles").select("full_name,phone,governorate,city,birth_date,avatar_path").eq("id",me.id).maybeSingle();
+  var pr=q.data||{},sp={},isS=me.role==="supplier";
+  if(isS){var w=await SB.from("supplier_profiles").select("business_name,address,contact_phone,avatar_path,rating_avg,rating_count,verified").eq("id",me.id).maybeSingle();sp=w.data||{}}
+  ACC={pr:pr,sp:sp};
+  $("a_nm").value=pr.full_name||"";$("a_ph").value=pr.phone||"";$("a_bd").value=pr.birth_date||"";
+  $("a_gv").value=pr.governorate||"";$("a_ct").value=pr.city||"";
+  $("a_cu").classList.toggle("hide",me.role!=="customer");
+  $("a_su").classList.toggle("hide",!isS);
+  if(isS){$("a_bn").value=sp.business_name||"";$("a_ad").value=sp.address||"";$("a_cp").value=sp.contact_phone||""}
+  var avp=isS?sp.avatar_path:pr.avatar_path,title=isS?(sp.business_name||pr.full_name):pr.full_name;
+  var st="";
+  if(isS){
+    var o=await SB.from("orders").select("customer_id,status").eq("supplier_id",me.id);
+    var done=(o.data||[]).filter(function(x){return x.status==="completed"}),cs={};
+    done.forEach(function(x){cs[x.customer_id]=1});
+    st='<div class="stats" style="margin-top:12px"><div class="card" style="font-size:13px"><b>'+Object.keys(cs).length+'</b>عميل</div><div class="card" style="font-size:13px"><b>'+done.length+'</b>أوردر مكتمل</div><div class="card" style="font-size:13px"><b>'+(sp.rating_count?sp.rating_avg+' ★':'-')+'</b>'+(sp.rating_count?sp.rating_count+' تقييم':'مفيش تقييمات')+'</div></div>';
+  }else if(me.role==="customer"){
+    var a=await Promise.all([SB.from("spare_part_requests").select("id",{count:"exact",head:true}).eq("customer_id",me.id),SB.from("orders").select("id",{count:"exact",head:true}).eq("customer_id",me.id).eq("status","completed")]);
+    st='<div class="stats" style="margin-top:12px;grid-template-columns:1fr 1fr"><div class="card" style="font-size:13px"><b>'+(a[0].count||0)+'</b>طلب</div><div class="card" style="font-size:13px"><b>'+(a[1].count||0)+'</b>أوردر مكتمل</div></div>';
+  }
+  P.innerHTML=avHtml(avp,title)+'<b style="font-size:18px">'+esc(title||"")+'</b><div class="mute">'+(me.role==="admin"?"أدمن":isS?"تاجر":"عميل")+(isS&&sp.verified?' · ✓ موثّق':'')+'</div>'+st+'<button class="btn sm ghost" id="a_gear" type="button" style="margin-top:12px">⚙️ إعدادات الحساب</button>';
+  $("a_gear").onclick=function(){$("a_set").scrollIntoView({behavior:"smooth"})};
+  if(isS)loadVerif();else $("sv").innerHTML="";
+}
+$("af").onsubmit=async function(e){
+  e.preventDefault();var m=$("a_m"),isS=me.role==="supplier";m.textContent="لحظة...";
+  var bd=$("a_bd").value;
+  if(bd){var age=(Date.now()-new Date(bd).getTime())/31557600000;if(!(age>=18&&age<100)){m.textContent="تاريخ الميلاد غير صحيح. لازم يكون عمرك 18 سنة أو أكتر.";return}}
+  if(isS&&!$("a_bn").value.trim()){m.textContent="اكتب اسم المحل";return}
+  var up={full_name:$("a_nm").value.trim(),phone:$("a_ph").value.trim()||null,birth_date:bd||null};
+  if(me.role==="customer"){up.governorate=$("a_gv").value.trim()||null;up.city=$("a_ct").value.trim()||null}
+  var f=$("a_img").files[0],path=null;
+  if(f){
+    var ext=(f.name.split(".").pop()||"jpg").toLowerCase().replace(/[^a-z0-9]/g,"");
+    path=me.id+"/avatar-"+Date.now()+"."+ext;
+    var u=await SB.storage.from("avatars").upload(path,f);
+    if(u.error){m.textContent="مقدرتش أرفع الصورة";return}
+  }
+  if(path&&!isS)up.avatar_path=path;
+  var r=await SB.from("profiles").update(up).eq("id",me.id);
+  if(r.error){m.textContent="مقدرتش أحفظ: "+r.error.message;return}
+  if(isS){
+    var su={business_name:$("a_bn").value.trim(),address:$("a_ad").value.trim()||null,contact_phone:$("a_cp").value.trim()||null};
+    if(path)su.avatar_path=path;
+    var r2=await SB.from("supplier_profiles").update(su).eq("id",me.id);
+    if(r2.error){m.textContent="مقدرتش أحفظ بيانات المحل: "+r2.error.message;return}
+  }
+  var old=ACC&&(isS?ACC.sp.avatar_path:ACC.pr.avatar_path);
+  if(path&&old){try{await SB.storage.from("avatars").remove([old])}catch(x){}}
+  me.name=up.full_name;m.textContent="اتحفظت ✓";$("a_img").value="";loadAccount();
+};
+$("a_pb").onclick=async function(){
+  var a=$("a_p1").value;
+  if(a.length<8){alert("كلمة السر لازم تكون 8 حروف أو أكتر");return}
+  if(a!==$("a_p2").value){alert("كلمتين السر مش متطابقين");return}
+  var r=await SB.auth.updateUser({password:a});
+  if(r.error){alert("مقدرتش أغيّر كلمة السر: "+r.error.message);return}
+  $("a_p1").value="";$("a_p2").value="";alert("اتغيّرت كلمة السر.");
+};
+$("a_out").onclick=function(){SB.auth.signOut()};
+nbInit();chInit();navInit();
 setInterval(function(){if(me&&!document.hidden)loadN()},30000);
 document.addEventListener("visibilitychange",function(){if(me&&!document.hidden)loadN()});
 var dp=null;
