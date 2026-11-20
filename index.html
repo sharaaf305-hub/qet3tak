@@ -150,6 +150,11 @@ input[type=file]::file-selector-button{font:inherit;font-weight:700;color:var(--
 .delacc{color:var(--bad)}
 #a_out{margin-top:20px;margin-bottom:12px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+.chips{display:flex;gap:8px;overflow-x:auto;padding:4px 0 6px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chips button{flex:none;border:1.5px solid var(--line);background:var(--card);color:var(--ink);border-radius:99px;padding:8px 14px;font:inherit;font-weight:600;white-space:nowrap;cursor:pointer}
+.chips button.on{background:var(--org);border-color:var(--org);color:#fff}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <link rel="manifest" href="manifest.json">
@@ -208,6 +213,7 @@ input[type=file]::file-selector-button{font:inherit;font-weight:700;color:var(--
     <form id="f">
       <h2>اطلب قطعتك</h2>
       <h3 class="fs" style="border-top:0;margin-top:0;padding-top:0">المركبة</h3>
+      <div class="chips" id="vch"></div>
       <div class="row">
         <div><label for="make">الماركة</label>
           <select id="make" required></select></div>
@@ -302,7 +308,7 @@ input[type=file]::file-selector-button{font:inherit;font-weight:700;color:var(--
    <label for="a_nm">الاسم</label><input id="a_nm" required>
    <label for="a_ph">رقم الموبايل</label><input id="a_ph" type="tel" inputmode="tel">
    <label for="a_bd">تاريخ الميلاد</label><input id="a_bd" type="date">
-   <div id="a_cu"><div class="row"><div><label for="a_gv">المحافظة</label><input id="a_gv"></div><div><label for="a_ct">المدينة</label><input id="a_ct"></div></div></div>
+   <div id="a_cu"><label for="a_vt">نوع مركبتي (اختصار للطلبات)</label><select id="a_vt"><option value="">غير محدد</option></select><div class="row"><div><label for="a_gv">المحافظة</label><input id="a_gv"></div><div><label for="a_ct">المدينة</label><input id="a_ct"></div></div></div>
    <div id="a_su" class="hide"><label for="a_bn">اسم المحل</label><input id="a_bn"><label for="a_ad">عنوان المحل</label><input id="a_ad"><label for="a_cp">رقم تواصل المحل</label><input id="a_cp" type="tel" inputmode="tel"></div>
    <p id="a_m" class="mute"></p>
    <button class="btn" type="submit">حفظ التعديلات</button>
@@ -311,6 +317,7 @@ input[type=file]::file-selector-button{font:inherit;font-weight:700;color:var(--
   <h2 id="a_set">إعدادات الحساب</h2>
   <div class="card">
    <b>تغيير كلمة السر</b>
+   <label for="a_p0">كلمة السر الحالية</label><input id="a_p0" type="password" autocomplete="current-password">
    <label for="a_p1">كلمة السر الجديدة</label><input id="a_p1" type="password" autocomplete="new-password">
    <label for="a_p2">تأكيد كلمة السر</label><input id="a_p2" type="password" autocomplete="new-password">
    <button class="btn sm" id="a_pb" type="button" style="margin-top:10px">تغيير كلمة السر</button>
@@ -364,7 +371,7 @@ function route(){
   else if(!me)r="login";
   else{var al=ALLOW[me.role]||ALLOW.customer;if(al.indexOf(r)<0)r=al[0]}
   VIEWS.forEach(function(v){$("v-"+v).classList.toggle("hide",v!==r)});
-  if(r==="request"){$("f").classList.remove("hide");$("done").classList.add("hide")}
+  if(r==="request"){$("f").classList.remove("hide");$("done").classList.add("hide");if(me&&me.vt&&!window.vtDone&&!$("make").value){window.vtDone=1;setVT(me.vt)}}
   if(r==="mine")loadMine();
   if(r==="supplier")loadSup();
   if(r==="orders")loadOrdersSup();
@@ -379,6 +386,7 @@ async function load(sess){
   me=null;
   if(sess){var p=await SB.from("profiles").select("role,full_name").eq("id",sess.user.id).maybeSingle();
     if(p.data)me={id:sess.user.id,role:p.data.role,name:p.data.full_name}}
+  if(me){try{var vq=await SB.from("profiles").select("vehicle_type").eq("id",me.id).maybeSingle();me.vt=(vq.data&&vq.data.vehicle_type)||""}catch(e){}}
   ready=true;
   if(me&&location.hash==="#login")location.hash=dest();
   route();
@@ -620,14 +628,15 @@ async function loadAdmin(){
     cnt("spare_part_requests",function(q){return q.eq("status","accepted")})
   ]);
   var L=["عملاء","تجار معتمدين","تجار منتظرين","طلبات","عروض","طلبات مختارة"];
-  $("as").innerHTML=L.map(function(t,i){return '<div class="card" style="font-size:13px"><b>'+(r[i].count==null?"-":r[i].count)+'</b>'+t+'</div>'}).join("");
+  $("as").innerHTML=L.map(function(t,i){return '<div class="card" data-k="'+i+'" style="font-size:13px;cursor:pointer"><b>'+(r[i].count==null?"-":r[i].count)+'</b>'+t+' <span class="mute">›</span></div>'}).join("");
   var s=await SB.from("supplier_profiles").select("id,business_name,address,contact_phone,status").order("created_at",{ascending:false});
   if(s.error){$("al").innerHTML='<p class="mute">حصلت مشكلة في تحميل التجار</p>';return}
   $("al").innerHTML=s.data.length?s.data.map(function(x){
-    return '<div class="card" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+esc(x.business_name)+'</b><span class="tag">'+SS[x.status]+'</span></div><div class="meta mute">'+esc(x.address||"")+' · '+esc(x.contact_phone||"")+'</div><button class="btn sm'+(x.status==="approved"?' ghost':'')+'" style="margin-top:8px" data-i="'+x.id+'" data-a="'+(x.status==="approved"?"suspended":"approved")+'">'+(x.status==="approved"?"إيقاف":x.status==="suspended"?"إعادة تفعيل":"اعتماد")+'</button></div>';
+    return '<div class="card" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+esc(x.business_name)+'</b><span class="tag">'+SS[x.status]+'</span></div><div class="meta mute">'+esc(x.address||"")+' · '+esc(x.contact_phone||"")+'</div><button class="btn sm ghost" style="margin-top:8px" data-u="'+x.id+'">البيانات</button> <button class="btn sm'+(x.status==="approved"?' ghost':'')+'" style="margin-top:8px" data-i="'+x.id+'" data-a="'+(x.status==="approved"?"suspended":"approved")+'">'+(x.status==="approved"?"إيقاف":x.status==="suspended"?"إعادة تفعيل":"اعتماد")+'</button></div>';
   }).join(""):'<p class="mute">مفيش تجار لسه.</p>';
 }
 $("al").onclick=async function(e){
+  var u=e.target.getAttribute("data-u");if(u){adminUser(u);return}
   var a=e.target.getAttribute("data-a"),i=e.target.getAttribute("data-i");if(!a)return;
   e.target.disabled=true;
   var r=await SB.rpc("set_supplier_status",{sid:i,s:a});
@@ -829,7 +838,7 @@ async function loadAccount(){
   var q=await SB.from("profiles").select("full_name,phone,governorate,city,birth_date,avatar_path").eq("id",me.id).maybeSingle();
   var pr=q.data||{},sp={},isS=me.role==="supplier";
   if(isS){var w=await SB.from("supplier_profiles").select("business_name,address,contact_phone,avatar_path,rating_avg,rating_count,verified").eq("id",me.id).maybeSingle();sp=w.data||{}}
-  ACC={pr:pr,sp:sp};
+  ACC={pr:pr,sp:sp};$("a_vt").value=me.vt||"";
   $("a_nm").value=pr.full_name||"";$("a_ph").value=pr.phone||"";$("a_bd").value=pr.birth_date||"";
   $("a_gv").value=pr.governorate||"";$("a_ct").value=pr.city||"";
   $("a_cu").classList.toggle("hide",me.role!=="customer");
@@ -846,8 +855,9 @@ async function loadAccount(){
     var a=await Promise.all([SB.from("spare_part_requests").select("id",{count:"exact",head:true}).eq("customer_id",me.id),SB.from("orders").select("id",{count:"exact",head:true}).eq("customer_id",me.id).eq("status","completed")]);
     st='<div class="stats" style="margin-top:12px;grid-template-columns:1fr 1fr"><div class="card" style="font-size:13px"><b>'+(a[0].count||0)+'</b>طلب</div><div class="card" style="font-size:13px"><b>'+(a[1].count||0)+'</b>أوردر مكتمل</div></div>';
   }
-  P.innerHTML=avHtml(avp,title)+'<b style="font-size:18px">'+esc(title||"")+'</b><div class="mute">'+(me.role==="admin"?"أدمن":isS?"تاجر":"عميل")+(isS&&sp.verified?' · ✓ موثّق':'')+'</div>'+st+'<button class="btn sm ghost" id="a_gear" type="button" style="margin-top:12px">⚙️ إعدادات الحساب</button>';
+  P.innerHTML=avHtml(avp,title)+'<div class="mute" style="font-size:12px;margin:6px 0 8px">اضغط على الصورة لتغييرها 📷</div><b style="font-size:18px">'+esc(title||"")+'</b><div class="mute">'+(me.role==="admin"?"أدمن":isS?"تاجر":"عميل")+(isS&&sp.verified?' · ✓ موثّق':'')+'</div>'+st+'<button class="btn sm ghost" id="a_gear" type="button" style="margin-top:12px">⚙️ إعدادات الحساب</button>';
   $("a_gear").onclick=function(){$("a_set").scrollIntoView({behavior:"smooth"})};
+  var avE=P.querySelector(".av");avE.style.cursor="pointer";avE.onclick=function(){$("a_img").click()};
   if(isS)loadVerif();else $("sv").innerHTML="";
 }
 $("af").onsubmit=async function(e){
@@ -875,15 +885,23 @@ $("af").onsubmit=async function(e){
   }
   var old=ACC&&(isS?ACC.sp.avatar_path:ACC.pr.avatar_path);
   if(path&&old){try{await SB.storage.from("avatars").remove([old])}catch(x){}}
+  if(me.role==="customer"){var vv=$("a_vt").value;try{await SB.from("profiles").update({vehicle_type:vv||null}).eq("id",me.id);me.vt=vv}catch(x){}}
   me.name=up.full_name;m.textContent="اتحفظت ✓";$("a_img").value="";loadAccount();
 };
 $("a_pb").onclick=async function(){
-  var a=$("a_p1").value;
-  if(a.length<8){alert("كلمة السر لازم تكون 8 حروف أو أكتر");return}
-  if(a!==$("a_p2").value){alert("كلمتين السر مش متطابقين");return}
+  var o=$("a_p0").value,a=$("a_p1").value,b=this;
+  if(!o){alert("اكتب كلمة السر الحالية");return}
+  if(a.length<8){alert("كلمة السر الجديدة لازم تكون 8 حروف أو أكتر");return}
+  if(a!==$("a_p2").value){alert("كلمتين السر الجديدتين مش متطابقين");return}
+  if(a===o){alert("الكلمة الجديدة لازم تختلف عن الحالية");return}
+  b.disabled=true;
+  var u=await SB.auth.getUser(),em=u.data&&u.data.user&&u.data.user.email;
+  var c=await SB.auth.signInWithPassword({email:em,password:o});
+  if(c.error){b.disabled=false;alert("كلمة السر الحالية غلط");return}
   var r=await SB.auth.updateUser({password:a});
+  b.disabled=false;
   if(r.error){alert("مقدرتش أغيّر كلمة السر: "+r.error.message);return}
-  $("a_p1").value="";$("a_p2").value="";alert("اتغيّرت كلمة السر.");
+  $("a_p0").value="";$("a_p1").value="";$("a_p2").value="";alert("اتغيّرت كلمة السر.");
 };
 $("a_out").onclick=function(){SB.auth.signOut()};
 (function(){
@@ -891,6 +909,97 @@ $("a_out").onclick=function(){SB.auth.signOut()};
   function t(){Array.prototype.forEach.call(document.querySelectorAll(".tag:not([data-k])"),function(e){var k=M[e.textContent.trim()];e.setAttribute("data-k","1");if(k)e.classList.add(k)})}
   new MutationObserver(t).observe(document.body,{childList:true,subtree:true});t();
 })();
+function sheet(title){
+  var d=document.createElement("div");d.className="chat";
+  d.innerHTML='<div class="ch"><b>'+esc(title)+'</b><button type="button" class="btn sm ghost" style="color:#fff;border-color:#fff" data-x="1">رجوع</button></div><div class="cm"></div>';
+  d.querySelector("[data-x]").onclick=function(){d.remove()};
+  document.body.appendChild(d);
+  return d.querySelector(".cm");
+}
+function arow(id,t,sub,dt){
+  return '<div class="card" style="margin-bottom:8px;'+(id?'cursor:pointer':'')+'"'+(id?' data-u="'+id+'"':'')+'><b>'+esc(t||"—")+'</b><div class="meta mute">'+esc(sub||"")+(dt?' · '+new Date(dt).toLocaleDateString("ar-EG"):'')+'</div></div>';
+}
+async function adminList(k){
+  var T=["العملاء","التجار المعتمدين","التجار المنتظرين","الطلبات","العروض","الطلبات المختارة"][k],B=sheet(T);
+  B.innerHTML='<p class="mute">بحمّل...</p>';
+  var h="",r;
+  if(k===0){
+    r=await SB.from("profiles").select("id,full_name,phone,governorate,city,created_at").eq("role","customer").order("created_at",{ascending:false}).limit(200);
+    h=(r.data||[]).map(function(x){return arow(x.id,x.full_name,(x.phone||"")+" · "+(x.governorate||"")+" "+(x.city||""),x.created_at)}).join("");
+  }else if(k===1||k===2){
+    r=await SB.from("supplier_profiles").select("id,business_name,contact_phone,address,verified").eq("status",k===1?"approved":"pending").order("created_at",{ascending:false}).limit(200);
+    h=(r.data||[]).map(function(x){return arow(x.id,x.business_name+(x.verified?" ✓":""),(x.contact_phone||"")+" · "+(x.address||""))}).join("");
+  }else if(k===3||k===5){
+    var q=SB.from("spare_part_requests").select("request_number,part_name,status,governorate,city,created_at");
+    if(k===5)q=q.eq("status","accepted");
+    r=await q.order("created_at",{ascending:false}).limit(200);
+    h=(r.data||[]).map(function(x){return arow(null,(x.part_name||"طلب قطعة")+" · "+x.request_number,(ST[x.status]||x.status)+" · "+(x.governorate||"")+" "+(x.city||""),x.created_at)}).join("");
+  }else{
+    r=await SB.from("quotations").select("price,condition,status,created_at,supplier_profiles(business_name),spare_part_requests(request_number,part_name)").order("created_at",{ascending:false}).limit(200);
+    h=(r.data||[]).map(function(x){var sp=one(x.supplier_profiles)||{},rq=one(x.spare_part_requests)||{};return arow(null,(sp.business_name||"تاجر")+" · "+x.price+" ج.م",(CL[x.condition]||"")+" · "+(rq.part_name||"")+" "+(rq.request_number||""),x.created_at)}).join("");
+  }
+  B.innerHTML=h||'<p class="mute">مفيش بيانات.</p>';
+  B.onclick=function(e){var c=e.target.closest("[data-u]");if(c)adminUser(c.getAttribute("data-u"))};
+}
+async function adminUser(id){
+  var B=sheet("بيانات الحساب");B.innerHTML='<p class="mute">بحمّل...</p>';
+  var a=await Promise.all([
+    SB.from("profiles").select("id,role,full_name,phone,governorate,city,birth_date,created_at").eq("id",id).maybeSingle(),
+    SB.from("supplier_profiles").select("business_name,address,contact_phone,status,verified,rating_avg,rating_count").eq("id",id).maybeSingle(),
+    SB.from("orders").select("status").or("customer_id.eq."+id+",supplier_id.eq."+id),
+    SB.rpc("admin_get_email",{uid:id}),
+    SB.rpc("supplier_balance",{sid:id})
+  ]);
+  var p=a[0].data||{},sp=a[1].data,od=a[2].data||[],done=od.filter(function(x){return x.status==="completed"}).length;
+  var f=function(k,v){return v?'<div class="meta"><span class="mute">'+k+':</span> '+esc(v)+'</div>':''};
+  var dt=function(x){return x?new Date(x).toLocaleDateString("ar-EG"):""};
+  var h='<div class="card"><b style="font-size:17px">'+esc(sp?sp.business_name:p.full_name)+'</b>'+(sp&&sp.verified?' <span class="tag">موثّق</span>':'')+(sp?' <span class="tag">'+SS[sp.status]+'</span>':'')
+   +f("الدور",p.role==="supplier"?"تاجر":p.role==="admin"?"أدمن":"عميل")+f("الاسم",p.full_name)+f("الإيميل",a[3].data)+f("الموبايل",p.phone)+f("تاريخ الميلاد",p.birth_date)
+   +f("المحافظة والمدينة",[p.governorate,p.city].filter(Boolean).join(" · "))+f("تاريخ التسجيل",dt(p.created_at))
+   +(sp?f("عنوان المحل",sp.address)+f("رقم المحل",sp.contact_phone)+(sp.rating_count?f("التقييم",sp.rating_avg+" ★ ("+sp.rating_count+")"):"")+f("المستحق للمنصة",a[4].data==null?"":Number(a[4].data).toFixed(2)+" ج.م"):"")
+   +f("الأوردرات",od.length+" ("+done+" مكتمل)")+'</div>';
+  if(sp)h+='<div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px">'+(sp.status==="approved"?'<button class="btn sm ghost" data-ac="suspended">إيقاف الحساب</button>':'<button class="btn sm" data-ac="approved">اعتماد الحساب</button>')+(sp.verified?'<button class="btn sm ghost" data-ac="unverify">إلغاء التوثيق</button>':'<button class="btn sm" data-ac="verify">توثيق بدون مستندات ✓</button>')+'</div>';
+  B.innerHTML=h;
+  B.onclick=async function(e){
+    var c=e.target.getAttribute("data-ac");if(!c)return;
+    if(c==="verify"&&!confirm("توثيق الحساب من غير مراجعة مستندات؟"))return;
+    e.target.disabled=true;
+    var r=(c==="verify"||c==="unverify")?await SB.rpc("admin_set_verified",{sid:id,v:c==="verify"}):await SB.rpc("set_supplier_status",{sid:id,s:c});
+    if(r.error){alert("مقدرتش أنفّذ: "+r.error.message);e.target.disabled=false;return}
+    B.parentNode.remove();adminUser(id);loadAdmin();loadAdminExtra();
+  };
+}
+$("as").onclick=function(e){var c=e.target.closest("[data-k]");if(c)adminList(+c.getAttribute("data-k"))};
+var VT=[["🛺","باجاج وتروسيكل","ثلاث"],["🏍","موتوسيكلات","موتوسيكلات"],["🚗","عربيات","ملاكي"],["🚚","نقل وبصات","نقل"],["🚜","حفارات ومعدات","معدات"],["🌾","جرارات","جرارات"],["⚡","مولدات","مولدات"]];
+(function(){
+  var k=Object.keys(G),t=k.filter(function(x){return x.indexOf("ثلاث")>=0})[0],n=k.filter(function(x){return x.indexOf("نقل")>=0})[0];
+  if(t&&!G[t]["تروسيكل"]){G[t]["تروسيكل"]=["تروسيكل نقل"];models["تروسيكل"]=G[t]["تروسيكل"]}
+  if(n&&!G[n]["باص (أوتوبيس)"]){G[n]["باص (أوتوبيس)"]=["ميني باص","باص كبير"];models["باص (أوتوبيس)"]=G[n]["باص (أوتوبيس)"]}
+})();
+function fillMakes(sub){
+  $("make").innerHTML='<option value="">اختار</option>'+Object.keys(G).filter(function(g){return !sub||g.indexOf(sub)>=0}).map(function(g){return'<optgroup label="'+g+'">'+Object.keys(G[g]).map(function(m){return'<option>'+m+'</option>'}).join("")+'</optgroup>'}).join("")+'<option>أخرى</option>';
+  $("model").innerHTML='<option value="">اختار الماركة أولاً</option>';$("mo").classList.add("hide");
+}
+function setVT(sub){
+  Array.prototype.forEach.call($("vch").children,function(b){b.classList.toggle("on",b.getAttribute("data-s")===(sub||"all"))});
+  fillMakes(sub);
+}
+$("vch").innerHTML='<button type="button" data-s="all" class="on">الكل</button>'+VT.map(function(v){return'<button type="button" data-s="'+v[2]+'">'+v[0]+' '+v[1]+'</button>'}).join("");
+$("vch").onclick=function(e){var x=e.target.getAttribute("data-s");if(x)setVT(x==="all"?null:x)};
+$("a_vt").innerHTML+=VT.map(function(v){return'<option value="'+v[2]+'">'+v[0]+' '+v[1]+'</option>'}).join("");
+fillMakes(null);
+$("a_img").onchange=async function(){
+  var f=this.files[0];if(!f)return;
+  if(f.size>5*1024*1024){alert("الصورة كبيرة. اختار صورة أقل من 5 ميجا");this.value="";return}
+  var isS=me.role==="supplier",ext=(f.name.split(".").pop()||"jpg").toLowerCase().replace(/[^a-z0-9]/g,""),path=me.id+"/avatar-"+Date.now()+"."+ext;
+  var u=await SB.storage.from("avatars").upload(path,f);
+  if(u.error){alert("مقدرتش أرفع الصورة");return}
+  var r=isS?await SB.from("supplier_profiles").update({avatar_path:path}).eq("id",me.id):await SB.from("profiles").update({avatar_path:path}).eq("id",me.id);
+  if(r.error){alert("مقدرتش أحفظ الصورة");return}
+  var old=ACC&&(isS?ACC.sp.avatar_path:ACC.pr.avatar_path);
+  if(old){try{await SB.storage.from("avatars").remove([old])}catch(x){}}
+  this.value="";loadAccount();
+};
 nbInit();chInit();navInit();
 setInterval(function(){if(me&&!document.hidden)loadN()},30000);
 document.addEventListener("visibilitychange",function(){if(me&&!document.hidden)loadN()});
