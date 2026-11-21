@@ -296,7 +296,7 @@ input[type=file]::file-selector-button{font:inherit;font-weight:700;color:var(--
 </section>
 <section id="v-orders" class="hide">
  <header><div class="logo">قطع<b>تك</b></div></header>
- <div class="wrap"><h2>أوردراتي</h2><div id="so"></div></div>
+ <div class="wrap"><div id="sdue"></div><h2>أوردراتي</h2><div id="so"></div></div>
 </section>
 <section id="v-account" class="hide">
  <header><div class="logo">قطع<b>تك</b></div></header>
@@ -330,7 +330,7 @@ input[type=file]::file-selector-button{font:inherit;font-weight:700;color:var(--
 <section id="v-admin" class="hide">
  <header><div class="logo">قطع<b>تك</b></div></header>
  <div class="wrap"><h2>لوحة الأدمن</h2>
- <div class="stats" id="as"></div><div id="ac" style="margin-top:12px"></div><h2>النزاعات</h2><div id="ad"></div><h2>طلبات توثيق التجار</h2><div id="av"></div>
+ <div class="stats" id="as"></div><div id="ac" style="margin-top:12px"></div><h2>إثباتات الدفع</h2><div id="apc"></div><h2>النزاعات</h2><div id="ad"></div><h2>طلبات توثيق التجار</h2><div id="av"></div>
  <h2>التجار</h2><div id="al"></div></div>
 </section>
 <script>
@@ -374,8 +374,8 @@ function route(){
   if(r==="request"){$("f").classList.remove("hide");$("done").classList.add("hide");if(me&&me.vt&&!window.vtDone&&!$("make").value){window.vtDone=1;setVT(me.vt)}}
   if(r==="mine")loadMine();
   if(r==="supplier")loadSup();
-  if(r==="orders")loadOrdersSup();
-  if(r==="admin"){loadAdmin();loadAdminExtra();loadAdminVer();loadAdminDisp();}
+  if(r==="orders"){loadDues();loadOrdersSup();}
+  if(r==="admin"){loadAdmin();loadAdminExtra();loadAdminVer();loadAdminDisp();loadAdminClaims();}
   if(r==="account")loadAccount();
   navDraw(r);
   window.scrollTo(0,0);
@@ -560,13 +560,14 @@ async function loadAdminExtra(){
   cm.forEach(function(x){tot+= +x.amount;D[x.supplier_id]=(D[x.supplier_id]||0)+ +x.amount});
   pm.forEach(function(x){paid+= +x.amount;D[x.supplier_id]=(D[x.supplier_id]||0)- +x.amount});
   var done=od.filter(function(x){return x.status==="completed"}).length;
-  var rows=(a[4].data||[]).map(function(s){var d=D[s.id]||0;return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px"><span>'+esc(s.business_name)+'<br><b>'+d.toFixed(2)+' ج.م</b> <span class="mute">مستحق</span></span><button class="btn sm ghost" data-p="'+s.id+'">تسجيل دفعة</button></div>'}).join("");
+  var rows=(a[4].data||[]).map(function(s){return{s:s,d:D[s.id]||0}}).sort(function(x,y){return y.d-x.d}).map(function(o){return '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+esc(o.s.business_name)+'</b><b style="color:var('+(o.d>0?'--org':'--ok')+')">'+o.d.toFixed(2)+' ج.م</b></div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><button class="btn sm ghost" data-p="'+o.s.id+'">تسجيل دفعة</button><button class="btn sm ghost" data-st="'+o.s.id+'">كشف حساب</button>'+(o.d>0?'<button class="btn sm ghost" data-rm="'+o.s.id+'">تذكير</button>':'')+'</div></div>'}).join("");
   $("ac").innerHTML='<div class="card"><b style="font-size:20px;color:var(--org)">'+tot.toFixed(2)+' ج.م</b> إجمالي العمولات<div class="meta mute">اتسدد '+paid.toFixed(2)+' · المتبقي '+(tot-paid).toFixed(2)+'<br>'+od.length+' أوردر · '+done+' مكتمل</div>'
    +'<label for="cr">نسبة العمولة (%)</label><div class="row"><input id="cr" type="number" inputmode="decimal" value="'+esc(st.commission_rate||"8")+'"><button class="btn sm" id="cs" type="button">حفظ</button></div>'
-   +'<label for="cl">أقصى مستحقات قبل إيقاف التاجر (ج.م)</label><div class="row"><input id="cl" type="number" inputmode="decimal" value="'+esc(st.credit_limit||"500")+'"><button class="btn sm" id="cls" type="button">حفظ</button></div></div>'
+   +'<label for="cl">أقصى مستحقات قبل إيقاف التاجر (ج.م)</label><div class="row"><input id="cl" type="number" inputmode="decimal" value="'+esc(st.credit_limit||"500")+'"><button class="btn sm" id="cls" type="button">حفظ</button></div><label for="pi">طريقة استلام المدفوعات (بتظهر للتجار)</label><textarea id="pi" rows="3" placeholder="مثلاً: إنستاباي: 01xxxxxxxxx باسم ...">'+esc(st.pay_info||"")+'</textarea><button class="btn sm" id="pis" type="button" style="margin-top:8px">حفظ</button></div>'
    +'<div class="card" style="margin-top:10px"><b>مستحقات التجار</b>'+(rows||'<p class="mute">مفيش تجار.</p>')+'</div>';
   $("cs").onclick=function(){saveSet("commission_rate",$("cr").value)};
   $("cls").onclick=function(){saveSet("credit_limit",$("cl").value)};
+  $("pis").onclick=async function(){var q=await SB.from("platform_settings").update({value:$("pi").value.trim()}).eq("key","pay_info");alert(q.error?"مقدرتش أحفظ":"اتحفظت")};
 }
 async function saveSet(k,v){
   v=+v;if(!(v>=0&&v<=100000)){alert("قيمة غلط");return}
@@ -574,10 +575,14 @@ async function saveSet(k,v){
   alert(r.error?"مقدرتش أحفظ":"اتحفظت");
 }
 $("ac").onclick=async function(e){
+  var st=e.target.getAttribute("data-st");if(st){statement(st);return}
+  var rm=e.target.getAttribute("data-rm");
+  if(rm){if(!confirm("تبعت تذكير بالمستحقات للتاجر؟"))return;var q=await SB.rpc("remind_supplier",{sid:rm});alert(q.error?"مقدرتش أبعت التذكير":"اتبعت التذكير");return}
   var p=e.target.getAttribute("data-p");if(!p)return;
   var v=prompt("المبلغ اللي التاجر حوّله (ج.م):");if(v===null)return;v=+v;
   if(!(v>0)){alert("اكتب مبلغ صحيح");return}
-  var r=await SB.from("commission_payments").insert({supplier_id:p,amount:v});
+  var mm=prompt("طريقة الدفع (اختياري):")||"";
+  var r=await SB.from("commission_payments").insert({supplier_id:p,amount:v,note:mm||"تسجيل يدوي"});
   if(r.error){alert("مقدرتش أسجّل الدفعة");return}
   loadAdminExtra();
 };
@@ -905,7 +910,7 @@ $("a_pb").onclick=async function(){
 };
 $("a_out").onclick=function(){SB.auth.signOut()};
 (function(){
-  var M={"مكتمل":"ok","تم الاختيار":"ok","معتمد":"ok","أصلي":"ok","وصلت عروض":"go","مفتوح":"go","تم تأكيد الأوردر":"go","التاجر بيجهّز القطعة":"go","القطعة اتشحنت":"go","فيه مشكلة":"bad","موقوف":"bad","ملغي":"off","قيد المراجعة":"wait","مستعمل":"wait"};
+  var M={"مكتمل":"ok","تم الاختيار":"ok","معتمد":"ok","أصلي":"ok","وصلت عروض":"go","مفتوح":"go","تم تأكيد الأوردر":"go","التاجر بيجهّز القطعة":"go","القطعة اتشحنت":"go","فيه مشكلة":"bad","موقوف":"bad","ملغي":"off","قيد المراجعة":"wait","اتأكّدت":"ok","اترفضت":"bad","مستعمل":"wait"};
   function t(){Array.prototype.forEach.call(document.querySelectorAll(".tag:not([data-k])"),function(e){var k=M[e.textContent.trim()];e.setAttribute("data-k","1");if(k)e.classList.add(k)})}
   new MutationObserver(t).observe(document.body,{childList:true,subtree:true});t();
 })();
@@ -999,6 +1004,71 @@ $("a_img").onchange=async function(){
   var old=ACC&&(isS?ACC.sp.avatar_path:ACC.pr.avatar_path);
   if(old){try{await SB.storage.from("avatars").remove([old])}catch(x){}}
   this.value="";loadAccount();
+};
+async function loadDues(){
+  var D=$("sdue");
+  var q=await Promise.all([SB.rpc("supplier_balance",{sid:me.id}),SB.from("platform_settings").select("key,value").in("key",["pay_info"]),SB.from("payment_claims").select("amount,method,status,note,created_at").order("created_at",{ascending:false}).limit(5)]);
+  var due=Number(q[0].data||0),S={},cs={pending:"قيد المراجعة",confirmed:"اتأكّدت",rejected:"اترفضت"};
+  (q[1].data||[]).forEach(function(x){S[x.key]=x.value});
+  D._due=due;
+  D.innerHTML='<div class="card" style="margin-top:12px"><b>مستحقاتك للمنصة</b><div class="pr" style="font-size:28px;font-weight:800;color:var('+(due>0?'--org':'--ok')+')">'+due.toFixed(2)+' ج.م</div>'
+   +(due>0?'<div class="meta" style="white-space:pre-line">'+(S.pay_info?'<b>طريقة الدفع:</b>\n'+esc(S.pay_info):'تواصل مع الإدارة لمعرفة طريقة الدفع.')+'</div>':'<div class="meta mute">مفيش مستحقات عليك ✓</div>')
+   +'<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">'+(due>0?'<button class="btn sm" data-dp="1">أرسل إثبات التحويل</button>':'')+'<button class="btn sm ghost" data-st="'+me.id+'">كشف الحساب</button></div>'
+   +((q[2].data||[]).length?'<div class="meta" style="margin-top:12px"><b>آخر إثباتاتك:</b>'+q[2].data.map(function(c){return '<br>'+Number(c.amount).toFixed(2)+' ج.م · '+esc(c.method)+' · <span class="tag">'+cs[c.status]+'</span>'+(c.status==="rejected"&&c.note?' ('+esc(c.note)+')':'')}).join("")+'</div>':'')+'</div>';
+}
+$("sdue").onclick=function(e){
+  if(e.target.getAttribute("data-dp"))claimDialog($("sdue")._due||0);
+  var u=e.target.getAttribute("data-st");if(u)statement(u);
+};
+function claimDialog(due){
+  var B=sheet("إثبات تحويل");
+  B.innerHTML='<label>المبلغ اللي حوّلته (ج.م)</label><input id="pc_a" type="number" inputmode="decimal" value="'+due.toFixed(2)+'"><label>طريقة التحويل</label><select id="pc_m"><option>إنستاباي</option><option>محفظة (فودافون كاش وغيرها)</option><option>تحويل بنكي</option><option>نقدي لمندوب</option></select><label>رقم العملية أو ملاحظة (اختياري)</label><input id="pc_r"><label>صورة إيصال التحويل</label><input id="pc_f" type="file" accept="image/*"><p id="pc_x" class="mute"></p><button class="btn" id="pc_s" type="button">إرسال للمراجعة</button>';
+  $("pc_s").onclick=async function(){
+    var a=+$("pc_a").value,f=$("pc_f").files[0],x=$("pc_x"),b=this;
+    if(!(a>0)){x.textContent="اكتب المبلغ";return}
+    if(!f){x.textContent="ارفع صورة الإيصال";return}
+    if(f.size>8*1024*1024){x.textContent="الصورة كبيرة (أقصى 8 ميجا)";return}
+    b.disabled=true;x.textContent="لحظة...";
+    var ext=(f.name.split(".").pop()||"jpg").toLowerCase().replace(/[^a-z0-9]/g,"");
+    var path=me.id+"/pay-"+Date.now()+"."+ext;
+    var u=await SB.storage.from("supplier-docs").upload(path,f);
+    if(u.error){b.disabled=false;x.textContent="مقدرتش أرفع الصورة";return}
+    var r=await SB.rpc("submit_payment_claim",{amt:a,mth:$("pc_m").value,ref:$("pc_r").value.trim(),proof:path});
+    if(r.error){b.disabled=false;x.textContent=/too many/.test(r.error.message)?"عندك 3 إثباتات لسه تحت المراجعة. استنى لما تتراجع.":"مقدرتش أبعت الإثبات";return}
+    B.parentNode.remove();loadDues();
+  };
+}
+async function statement(id){
+  var B=sheet("كشف الحساب");B.innerHTML='<p class="mute">بحمّل...</p>';
+  var a=await Promise.all([SB.from("commissions").select("amount,rate,created_at,orders(order_number)").eq("supplier_id",id),SB.from("commission_payments").select("amount,note,created_at").eq("supplier_id",id)]);
+  var E=[];
+  (a[0].data||[]).forEach(function(c){var o=one(c.orders)||{};E.push({t:c.created_at,d:"عمولة "+c.rate+"% · "+(o.order_number||""),v:+c.amount})});
+  (a[1].data||[]).forEach(function(p){E.push({t:p.created_at,d:"دفعة"+(p.note?" · "+p.note:""),v:-p.amount})});
+  E.sort(function(x,y){return new Date(x.t)-new Date(y.t)});
+  var bal=0;
+  var rows=E.map(function(e){bal+=e.v;return '<div class="card" style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+esc(e.d)+'</b><b style="color:var('+(e.v>0?'--bad':'--ok')+')">'+(e.v>0?'+':'−')+Math.abs(e.v).toFixed(2)+'</b></div><div class="meta mute">'+new Date(e.t).toLocaleDateString("ar-EG")+' · الرصيد '+bal.toFixed(2)+' ج.م</div></div>'}).reverse().join("");
+  B.innerHTML='<div class="card"><b>المستحق الحالي: '+bal.toFixed(2)+' ج.م</b></div><div style="margin-top:10px"></div>'+(rows||'<p class="mute">مفيش حركات لسه.</p>');
+}
+async function loadAdminClaims(){
+  var el=$("apc");
+  var r=await SB.from("payment_claims").select("id,supplier_id,amount,method,reference,proof_path,created_at,supplier_profiles(business_name)").eq("status","pending").order("created_at");
+  if(r.error){el.innerHTML="";return}
+  var d=r.data||[];
+  if(!d.length){el.innerHTML='<p class="mute">مفيش إثباتات دفع منتظرة.</p>';return}
+  var u=await SB.storage.from("supplier-docs").createSignedUrls(d.map(function(x){return x.proof_path}),600),U={};
+  (u.data||[]).forEach(function(x){if(x.signedUrl)U[x.path]=x.signedUrl});
+  el.innerHTML=d.map(function(x){var sp=one(x.supplier_profiles)||{};
+    return '<div class="card" style="margin-bottom:10px"><b>'+esc(sp.business_name||"")+'</b> · '+Number(x.amount).toFixed(2)+' ج.م<div class="meta">'+esc(x.method)+(x.reference?' · '+esc(x.reference):'')+'<br>'+(U[x.proof_path]?'<a href="'+esc(U[x.proof_path])+'" target="_blank" rel="noopener">شوف الإيصال</a>':'')+'</div><button class="btn sm" style="margin-top:8px" data-cc="'+x.id+'" data-ok="1">تأكيد الدفع ✓</button> <button class="btn sm ghost" style="margin-top:8px" data-cc="'+x.id+'">رفض</button></div>'}).join("");
+}
+$("apc").onclick=async function(e){
+  var c=e.target.getAttribute("data-cc");if(!c)return;
+  var ok=e.target.getAttribute("data-ok")==="1",note=null;
+  if(!ok){note=prompt("سبب الرفض (هيوصل للتاجر):");if(note===null)return}
+  else if(!confirm("اتأكدت إن الفلوس وصلت حسابك؟"))return;
+  e.target.disabled=true;
+  var r=await SB.rpc("review_payment_claim",{cid:c,ok:ok,reason:note});
+  if(r.error){alert("مقدرتش أحفظ");e.target.disabled=false;return}
+  loadAdminClaims();loadAdminExtra();
 };
 nbInit();chInit();navInit();
 setInterval(function(){if(me&&!document.hidden)loadN()},30000);
